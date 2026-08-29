@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
-import { estimateOneRepMax } from "@/lib/stats";
+import { estimateOneRepMax, formatDuration } from "@/lib/stats";
 import { playTapSound, playPRSound } from "@/lib/sound";
 import { createClient } from "@/lib/supabase/client";
 import confetti from "canvas-confetti";
@@ -42,14 +42,6 @@ function fireConfetti() {
     colors: [accent, "#ffffff"],
     ticks: 160,
   });
-}
-
-function formatElapsed(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function suggestedWeightFor(
@@ -312,7 +304,7 @@ export default function WorkoutBuilder({
         </button>
       </div>
 
-      {!savePlanMode && <p className="tnum text-sm text-muted">{formatElapsed(elapsedSeconds)}</p>}
+      {!savePlanMode && <p className="tnum text-sm text-muted">{formatDuration(elapsedSeconds)}</p>}
 
       {pickerOpen && (
         <ExercisePicker

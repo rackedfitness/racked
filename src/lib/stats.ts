@@ -150,6 +150,14 @@ export function formatVolume(volume: number): string {
   return `${Math.round(volume)}kg`;
 }
 
+export function formatDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
 /**
  * The weight of the most recently logged set per exercise, across all
  * finished workouts. Assumes each workout_exercises[].workout_sets array is

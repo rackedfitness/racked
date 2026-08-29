@@ -3,13 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
-import { computePREvents, formatVolume, type WorkoutLite } from "@/lib/stats";
-
-function formatSetDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
+import { computePREvents, formatDuration, formatVolume, type WorkoutLite } from "@/lib/stats";
 
 function formatWorkoutDuration(seconds: number): string {
   const totalMinutes = Math.round(seconds / 60);
@@ -161,7 +155,7 @@ export default async function WorkoutDetailPage({
                     {exerciseInfo?.category === "cardio" ? (
                       <>
                         <span>{s.distance_km ?? "-"} km</span>
-                        <span>{s.duration_seconds != null ? formatSetDuration(s.duration_seconds) : "-"}</span>
+                        <span>{s.duration_seconds != null ? formatDuration(s.duration_seconds) : "-"}</span>
                       </>
                     ) : (
                       <>
