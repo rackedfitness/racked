@@ -8,7 +8,11 @@ export type LiftKey =
   | "romanianDeadlift"
   | "overheadPress"
   | "row"
-  | "hipThrust";
+  | "hipThrust"
+  | "bicepCurl"
+  | "hammerCurl"
+  | "legPress"
+  | "shoulderPress";
 
 export type RankKey = "bronze" | "silver" | "gold" | "platinum" | "diamond" | "master" | "champion";
 
@@ -52,6 +56,10 @@ const LIFT_NAME_MAP: Record<string, LiftKey> = {
   "overhead press": "overheadPress",
   "barbell row": "row",
   "hip thrust": "hipThrust",
+  "bicep curl": "bicepCurl",
+  "hammer curl": "hammerCurl",
+  "leg press": "legPress",
+  "seated dumbbell press": "shoulderPress",
 };
 
 export function liftKeyForExerciseName(name: string): LiftKey | null {
@@ -68,6 +76,10 @@ export const LIFT_LABELS: Record<LiftKey, string> = {
   overheadPress: "Overhead Press",
   row: "Barbell Row",
   hipThrust: "Hip Thrust",
+  bicepCurl: "Bicep Curl",
+  hammerCurl: "Hammer Curl",
+  legPress: "Leg Press",
+  shoulderPress: "Shoulder Press",
 };
 
 // Reference points: estimated 1RM as a multiple of bodyweight, for a lifter
@@ -87,6 +99,12 @@ const MALE_STANDARDS: Record<LiftKey, Record<number, number>> = {
   overheadPress: { 5: 0.25, 20: 0.4, 50: 0.55, 80: 0.8, 95: 1.0, 99: 1.2 },
   row: { 5: 0.34, 20: 0.55, 50: 0.77, 80: 1.11, 95: 1.36, 99: 1.7 },
   hipThrust: { 5: 0.7, 20: 1.1, 50: 1.5, 80: 2.1, 95: 2.6, 99: 3.1 },
+  // Dumbbell lifts (bicep curl, hammer curl, shoulder press) are logged as
+  // the weight of a single dumbbell, not the combined total.
+  bicepCurl: { 5: 0.15, 20: 0.22, 50: 0.3, 80: 0.4, 95: 0.5, 99: 0.6 },
+  hammerCurl: { 5: 0.17, 20: 0.24, 50: 0.33, 80: 0.44, 95: 0.55, 99: 0.66 },
+  legPress: { 5: 0.8, 20: 1.4, 50: 2.0, 80: 2.8, 95: 3.5, 99: 4.2 },
+  shoulderPress: { 5: 0.15, 20: 0.25, 50: 0.35, 80: 0.5, 95: 0.62, 99: 0.75 },
 };
 
 // Female standards run lower relative to bodyweight for upper-body pressing
@@ -102,6 +120,10 @@ const FEMALE_SCALE: Record<LiftKey, number> = {
   overheadPress: 0.55,
   row: 0.6,
   hipThrust: 0.78,
+  bicepCurl: 0.6,
+  hammerCurl: 0.6,
+  legPress: 0.75,
+  shoulderPress: 0.55,
 };
 
 function standardsFor(lift: LiftKey, sex: Sex): Record<number, number> {
