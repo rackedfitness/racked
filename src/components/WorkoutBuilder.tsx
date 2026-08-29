@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
 import { estimateOneRepMax } from "@/lib/stats";
@@ -44,6 +44,14 @@ function fireConfetti() {
   });
 }
 
+function formatElapsed(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function suggestedWeightFor(
   sets: BuilderSet[],
   upToIndex: number,
@@ -73,6 +81,8 @@ export default function WorkoutBuilder({
   userId?: string;
 }) {
   const [title, setTitle] = useState(initialTitle);
+  const [startedAt] = useState(() => new Date().toISOString());
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [notes, setNotes] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -100,6 +110,14 @@ export default function WorkoutBuilder({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [detailExerciseId, setDetailExerciseId] = useState<string | null>(null);
   const [finishChoiceOpen, setFinishChoiceOpen] = useState(false);
+
+  useEffect(() => {
+    if (savePlanMode) return;
+    const interval = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [savePlanMode]);
+
+  const elapsedSeconds = Math.max(0, Math.floor((nowTs - new Date(startedAt).getTime()) / 1000));
 
   function addExercise(exercise: Exercise) {
     setSelected((prev) => [
@@ -244,7 +262,14 @@ export default function WorkoutBuilder({
           exerciseId: e.exerciseId,
           sets: e.sets,
         }));
-        await saveWorkout({ title, notes: notes.trim() || null, exercises: payload, isPublic, photoUrl });
+        await saveWorkout({
+          title,
+          notes: notes.trim() || null,
+          exercises: payload,
+          isPublic,
+          photoUrl,
+          startedAt,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
@@ -286,6 +311,8 @@ export default function WorkoutBuilder({
           {isPending ? "Saving..." : savePlanMode ? "Save" : "Finish"}
         </button>
       </div>
+
+      {!savePlanMode && <p className="tnum text-sm text-muted">{formatElapsed(elapsedSeconds)}</p>}
 
       {pickerOpen && (
         <ExercisePicker

@@ -3,11 +3,19 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
+import { computePREvents, formatVolume, type WorkoutLite } from "@/lib/stats";
 
-function formatDuration(seconds: number): string {
+function formatSetDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.round(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function formatWorkoutDuration(seconds: number): string {
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
 export default async function WorkoutDetailPage({
@@ -51,6 +59,29 @@ export default async function WorkoutDetailPage({
   const exerciseCount = workoutExercises?.length ?? 0;
   const summary = `${workout.title} — ${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"} on ${dateLabel}`;
 
+  const durationSeconds = workout.finished_at
+    ? Math.max(0, Math.round((new Date(workout.finished_at).getTime() - new Date(workout.started_at).getTime()) / 1000))
+    : null;
+
+  const volume = (sets ?? []).reduce((total, s) => (s.weight && s.reps ? total + s.weight * s.reps : total), 0);
+
+  const { data: allWorkouts } = await supabase
+    .from("workouts")
+    .select("id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))")
+    .eq("user_id", workout.user_id)
+    .not("finished_at", "is", null)
+    .order("started_at");
+
+  const prEvents = computePREvents((allWorkouts ?? []) as unknown as WorkoutLite[]).filter(
+    (e) => e.workoutId === id
+  );
+
+  const exerciseNames: Record<string, string> = {};
+  for (const we of workoutExercises ?? []) {
+    const info = Array.isArray(we.exercises) ? we.exercises[0] : we.exercises;
+    if (info?.name) exerciseNames[we.exercise_id] = info.name;
+  }
+
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-start justify-between gap-3">
@@ -86,6 +117,36 @@ export default async function WorkoutDetailPage({
         />
       )}
 
+      {durationSeconds !== null && (
+        <div className="grid grid-cols-3 gap-2 rounded-lg border border-card-border bg-card p-3 text-center">
+          <div>
+            <p className="tnum text-lg font-bold">{formatWorkoutDuration(durationSeconds)}</p>
+            <p className="text-xs text-muted">Time</p>
+          </div>
+          <div>
+            <p className="tnum text-lg font-bold">{formatVolume(volume)}</p>
+            <p className="text-xs text-muted">Volume</p>
+          </div>
+          <div>
+            <p className="tnum text-lg font-bold">{prEvents.length}</p>
+            <p className="text-xs text-muted">New PRs</p>
+          </div>
+        </div>
+      )}
+
+      {prEvents.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {prEvents.map((e) => (
+            <span
+              key={e.exerciseId}
+              className="rounded-full border border-accent bg-accent/15 px-2.5 py-1 text-xs text-accent"
+            >
+              {exerciseNames[e.exerciseId] ?? "Exercise"} PR — {e.weight}kg × {e.reps}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         {(workoutExercises ?? []).map((we) => {
           const exerciseSets = (sets ?? []).filter((s) => s.workout_exercise_id === we.id);
@@ -100,7 +161,7 @@ export default async function WorkoutDetailPage({
                     {exerciseInfo?.category === "cardio" ? (
                       <>
                         <span>{s.distance_km ?? "-"} km</span>
-                        <span>{s.duration_seconds != null ? formatDuration(s.duration_seconds) : "-"}</span>
+                        <span>{s.duration_seconds != null ? formatSetDuration(s.duration_seconds) : "-"}</span>
                       </>
                     ) : (
                       <>

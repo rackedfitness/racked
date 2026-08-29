@@ -24,6 +24,7 @@ export async function saveWorkout(input: {
   exercises: ExerciseInput[];
   isPublic?: boolean;
   photoUrl?: string | null;
+  startedAt: string;
 }) {
   const supabase = await createClient();
   const {
@@ -45,6 +46,7 @@ export async function saveWorkout(input: {
       notes: input.notes || null,
       photo_url: input.photoUrl || null,
       is_public: input.isPublic ?? true,
+      started_at: input.startedAt,
       finished_at: new Date().toISOString(),
     })
     .select("id")
