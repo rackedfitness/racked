@@ -10,8 +10,7 @@ import {
   categorySetCounts,
   type WorkoutLite,
 } from "@/lib/stats";
-import { SnowflakeIcon } from "@/components/StreakIcons";
-import { FlameIcon } from "@/components/UIIcons";
+import StreakCard from "@/components/StreakCard";
 import BodyMap from "@/components/BodyMap";
 import Avatar from "@/components/Avatar";
 import MuscleBreakdownList from "@/components/MuscleBreakdownList";
@@ -119,29 +118,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className={`rounded-lg border border-card-border bg-card p-4 ${streak > 0 ? "glow-accent-sm" : ""}`}>
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-wide text-muted">Streak</p>
-        </div>
-        <div className="mt-2 flex items-center gap-3">
-          <span className="flex">{streak > 0 ? <FlameIcon size={28} /> : <SnowflakeIcon size={28} />}</span>
-          <div>
-            <p className="tnum text-2xl">{streak} days</p>
-            <p className="tnum text-xs text-muted">Best: {longestStreak} days</p>
-          </div>
-        </div>
-        <div className="mt-3 h-1.5 w-full rounded-full bg-background">
-          <div
-            className="h-1.5 rounded-full bg-accent transition-all"
-            style={{ width: `${Math.min(100, (streak / Math.max(longestStreak, 1)) * 100)}%` }}
-          />
-        </div>
-        {milestone !== null && (
-          <p className="tnum mt-2 text-xs text-muted">
-            {milestone - streak} day{milestone - streak === 1 ? "" : "s"} to next milestone
-          </p>
-        )}
-      </div>
+      <StreakCard streak={streak} longestStreak={longestStreak} milestone={milestone} />
 
       <div>
         <div className="mb-2 flex items-center justify-between">

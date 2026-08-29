@@ -74,9 +74,9 @@ export function ArrowDownIcon({ size = 20, className }: IconProps) {
   );
 }
 
-export function FlameIcon({ size = 24, className }: IconProps) {
+export function FlameIcon({ size = 24, className, color = "#ff8a3d" }: IconProps & { color?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="#ff8a3d">
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill={color}>
       <path d="M12 2c1 3-3 4.5-3 8a3 3 0 006 0c1.2 1 2 2.6 2 4.3A5.3 5.3 0 0111.7 22 5.3 5.3 0 016.3 16.7c0-3.4 2.2-5 3.4-7.3.7-1.3.9-3 .3-4.4 1 .3 1.7.9 2 3z" />
     </svg>
   );

@@ -114,6 +114,67 @@ h3 {
   animation: pr-glow-pop 0.5s ease-out;
 }
 
+/* streak flame: a subtle idle flicker, scaling up to a stronger flicker plus
+   a pulsing card glow at the highest streak tiers */
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.04) rotate(-2deg);
+  }
+  50% {
+    transform: scale(0.97) rotate(1.5deg);
+  }
+  75% {
+    transform: scale(1.02) rotate(-1deg);
+  }
+}
+
+.animate-flame-flicker {
+  animation: flame-flicker 2.2s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+@keyframes flame-flicker-strong {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  20% {
+    transform: scale(1.08) rotate(-3deg);
+  }
+  45% {
+    transform: scale(0.94) rotate(2deg);
+  }
+  70% {
+    transform: scale(1.06) rotate(-2deg);
+  }
+  85% {
+    transform: scale(0.98) rotate(1deg);
+  }
+}
+
+.animate-flame-flicker-strong {
+  animation: flame-flicker-strong 1.4s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+@keyframes blaze-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 14px -2px var(--blaze-glow, #ff6a1a);
+  }
+  50% {
+    box-shadow: 0 0 28px 4px var(--blaze-glow, #ff6a1a);
+  }
+}
+
+.animate-blaze-pulse {
+  animation: blaze-pulse 2s ease-in-out infinite;
+}
+
 /* startup splash: word fades in, collapses into the R's stem, which spins
    into the barbell bar, then the plates fade on */
 @keyframes splash-word-in {
