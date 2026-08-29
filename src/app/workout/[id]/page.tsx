@@ -70,12 +70,6 @@ export default async function WorkoutDetailPage({
     (e) => e.workoutId === id
   );
 
-  const exerciseNames: Record<string, string> = {};
-  for (const we of workoutExercises ?? []) {
-    const info = Array.isArray(we.exercises) ? we.exercises[0] : we.exercises;
-    if (info?.name) exerciseNames[we.exercise_id] = info.name;
-  }
-
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-start justify-between gap-3">
@@ -122,22 +116,17 @@ export default async function WorkoutDetailPage({
             <p className="text-xs text-muted">Volume</p>
           </div>
           <div>
-            <p className="tnum text-lg font-bold">{prEvents.length}</p>
+            {prEvents.length > 0 ? (
+              <Link href={`/workout/${id}/prs`} className="block">
+                <p className="tnum text-lg font-bold text-accent underline decoration-accent/40 underline-offset-2">
+                  {prEvents.length}
+                </p>
+              </Link>
+            ) : (
+              <p className="tnum text-lg font-bold">{prEvents.length}</p>
+            )}
             <p className="text-xs text-muted">New PRs</p>
           </div>
-        </div>
-      )}
-
-      {prEvents.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {prEvents.map((e) => (
-            <span
-              key={e.exerciseId}
-              className="rounded-full border border-accent bg-accent/15 px-2.5 py-1 text-xs text-accent"
-            >
-              {exerciseNames[e.exerciseId] ?? "Exercise"} PR — {e.weight}kg × {e.reps}
-            </span>
-          ))}
         </div>
       )}
 

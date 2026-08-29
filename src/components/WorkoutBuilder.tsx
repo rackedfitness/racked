@@ -32,6 +32,20 @@ type InitialExercise = {
   targetReps: number | null;
 };
 
+// A simple medal glyph (ribbon flags + disc) for PR-celebration confetti.
+// canvas-confetti's shapeFromPath needs a browser Path2D, so it's built lazily
+// on first use (never at module scope, which would also run during SSR) and
+// cached since computing the transform matrix is relatively expensive.
+const MEDAL_PATH =
+  "M14,2 L20,2 L20,14 Z M26,2 L20,2 L20,14 Z M11,24 A9,9 0 1,0 29,24 A9,9 0 1,0 11,24 Z";
+let medalShapeCache: ReturnType<typeof confetti.shapeFromPath> | null = null;
+function getMedalShape() {
+  if (!medalShapeCache) {
+    medalShapeCache = confetti.shapeFromPath({ path: MEDAL_PATH });
+  }
+  return medalShapeCache;
+}
+
 function fireConfetti() {
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ccff00";
   confetti({
@@ -41,6 +55,7 @@ function fireConfetti() {
     origin: { y: 0.6 },
     colors: [accent, "#ffffff"],
     ticks: 160,
+    shapes: [getMedalShape()],
   });
 }
 
@@ -169,38 +184,51 @@ export default function WorkoutBuilder({
     );
   }
 
+  // Re-derives which single set (if any) is this exercise's PR: the highest
+  // estimated 1RM among completed sets, but only if it beats the all-time
+  // prior best. Only ever one set per exercise carries the badge — if a
+  // later set beats an earlier "PR" set, the earlier badge is cleared.
+  function recomputeExercisePRs(
+    sets: BuilderSet[],
+    priorBest: number
+  ): { sets: BuilderSet[]; bestIndex: number | null } {
+    let bestIndex: number | null = null;
+    let bestEst1RM = priorBest;
+    sets.forEach((s, i) => {
+      if (s.completed && s.weight && s.reps) {
+        const est1RM = estimateOneRepMax(s.weight, s.reps);
+        if (est1RM > bestEst1RM) {
+          bestEst1RM = est1RM;
+          bestIndex = i;
+        }
+      }
+    });
+    return { sets: sets.map((s, i) => ({ ...s, isPR: i === bestIndex })), bestIndex };
+  }
+
   function toggleSetComplete(exerciseId: string, idx: number) {
     const ex = selected.find((e) => e.exerciseId === exerciseId);
     if (!ex) return;
     const set = ex.sets[idx];
     const willComplete = !set.completed;
 
-    if (!willComplete) {
-      updateSet(exerciseId, idx, { completed: false, isPR: false });
-      return;
-    }
+    const effectiveWeight = willComplete
+      ? (set.weight ?? suggestedWeightFor(ex.sets, idx, lastKnownWeight[exerciseId]))
+      : set.weight;
 
-    const effectiveWeight = set.weight ?? suggestedWeightFor(ex.sets, idx, lastKnownWeight[exerciseId]);
+    const toggledSets = ex.sets.map((s, i) =>
+      i === idx ? { ...s, completed: willComplete, weight: effectiveWeight } : s
+    );
 
-    let isPR = false;
-    if (effectiveWeight && set.reps) {
-      const est1RM = estimateOneRepMax(effectiveWeight, set.reps);
-      const priorBest = bestEver[exerciseId] ?? 0;
-      const sessionBest = Math.max(
-        0,
-        ...ex.sets
-          .filter((s, i) => i !== idx && s.completed && s.weight && s.reps)
-          .map((s) => estimateOneRepMax(s.weight as number, s.reps as number))
-      );
-      isPR = est1RM > Math.max(priorBest, sessionBest);
-    }
+    const priorBest = bestEver[exerciseId] ?? 0;
+    const { sets: finalSets, bestIndex } = recomputeExercisePRs(toggledSets, priorBest);
 
-    updateSet(exerciseId, idx, { completed: true, isPR, weight: effectiveWeight });
+    setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, sets: finalSets } : e)));
 
-    if (isPR) {
+    if (willComplete && bestIndex === idx) {
       playPRSound();
       fireConfetti();
-    } else {
+    } else if (willComplete) {
       playTapSound();
     }
   }
