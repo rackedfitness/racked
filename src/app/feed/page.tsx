@@ -8,7 +8,7 @@ export default async function FeedPage() {
   const { data: workouts } = await supabase
     .from("workouts")
     .select(
-      "id, title, notes, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count)"
+      "id, title, notes, photo_url, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count)"
     )
     .not("finished_at", "is", null)
     .eq("is_public", true)
@@ -37,7 +37,7 @@ export default async function FeedPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-5">
         {(workouts ?? []).map((w) => {
           const author = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles;
           const exerciseCount = Array.isArray(w.workout_exercises)
@@ -48,20 +48,33 @@ export default async function FeedPage() {
             <Link
               key={w.id}
               href={`/workout/${w.id}`}
-              className="rounded-lg border border-card-border bg-card p-4 hover:border-accent"
+              className="flex flex-col gap-3 rounded-xl border border-card-border bg-card p-5 hover:border-accent"
             >
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm font-medium text-muted">
-                  <Avatar url={author?.avatar_url} name={author?.display_name ?? author?.username ?? "?"} size="sm" />
+                <span className="flex items-center gap-2.5 text-sm font-medium text-muted">
+                  <Avatar url={author?.avatar_url} name={author?.display_name ?? author?.username ?? "?"} size="md" />
                   {author?.display_name ?? author?.username}
                 </span>
                 <span className="text-xs text-muted">
                   {new Date(w.started_at).toLocaleDateString()}
                 </span>
               </div>
-              <h2 className="mt-1 font-semibold">{w.title}</h2>
-              <p className="text-sm text-muted">{exerciseCount} exercises</p>
-              {w.notes && <p className="mt-1 text-sm italic text-muted">&ldquo;{w.notes}&rdquo;</p>}
+
+              <div>
+                <h2 className="text-lg font-semibold">{w.title}</h2>
+                <p className="text-sm text-muted">{exerciseCount} exercises</p>
+              </div>
+
+              {w.photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={w.photo_url}
+                  alt=""
+                  className="max-h-96 w-full rounded-lg border border-card-border object-cover"
+                />
+              )}
+
+              {w.notes && <p className="text-sm italic text-muted">&ldquo;{w.notes}&rdquo;</p>}
             </Link>
           );
         })}
