@@ -85,7 +85,7 @@ create table if not exists public.exercises (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   category text, -- e.g. 'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio'
-  equipment text, -- e.g. 'barbell', 'dumbbell', 'machine', 'bodyweight'
+  equipment text, -- e.g. 'barbell', 'dumbbell', 'machine', 'bodyweight', 'weighted_bodyweight'
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -614,6 +614,18 @@ values
   ('Single-Leg Press', 'legs', 'machine'),
   ('Single-Leg Calf Raise', 'legs', 'bodyweight'),
   ('Suitcase Carry', 'core', 'dumbbell')
+on conflict do nothing;
+
+-- =========================================
+-- seed weighted bodyweight variants (equipment 'weighted_bodyweight' means
+-- the logged weight is ADDED on top of the user's bodyweight, e.g. a dip
+-- belt or weighted vest)
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Weighted Pull Up', 'back', 'weighted_bodyweight'),
+  ('Weighted Chin Up', 'back', 'weighted_bodyweight'),
+  ('Weighted Dip', 'arms', 'weighted_bodyweight')
 on conflict do nothing;
 
 -- =========================================

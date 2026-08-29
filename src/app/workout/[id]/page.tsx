@@ -112,7 +112,15 @@ export default async function WorkoutDetailPage({
             <p className="text-xs text-muted">Time</p>
           </div>
           <div>
-            <p className="tnum text-lg font-bold">{formatVolume(volume)}</p>
+            {volume > 0 ? (
+              <Link href={`/workout/${id}/volume`} className="block">
+                <p className="tnum text-lg font-bold text-accent underline decoration-accent/40 underline-offset-2">
+                  {formatVolume(volume)}
+                </p>
+              </Link>
+            ) : (
+              <p className="tnum text-lg font-bold">{formatVolume(volume)}</p>
+            )}
             <p className="text-xs text-muted">Volume</p>
           </div>
           <div>

@@ -73,10 +73,12 @@ const GLYPHS: Record<string, (props: GlyphProps) => React.JSX.Element> = {
   cable: CableGlyph,
   kettlebell: KettlebellGlyph,
   bodyweight: BodyweightGlyph,
+  weighted_bodyweight: BodyweightGlyph,
 };
 
 export function equipmentLabel(equipment: string | null | undefined): string | null {
   if (!equipment) return null;
+  if (equipment === "weighted_bodyweight") return "Weighted";
   return equipment.charAt(0).toUpperCase() + equipment.slice(1);
 }
 

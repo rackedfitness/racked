@@ -29,6 +29,17 @@ export default async function NewWorkoutPage({
   const bestEver = computeBestEverMap(historyWorkouts);
   const lastKnownWeight = computeLastWeightMap(historyWorkouts);
 
+  const { data: latestMeasurement } = await supabase
+    .from("body_measurements")
+    .select("weight_kg")
+    .eq("user_id", user!.id)
+    .not("weight_kg", "is", null)
+    .order("logged_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const bodyweightKg = latestMeasurement?.weight_kg ?? null;
+
   let initialExercises: {
     exerciseId: string;
     name: string;
@@ -75,6 +86,7 @@ export default async function NewWorkoutPage({
       savePlanMode={savePlan === "1"}
       bestEver={bestEver}
       lastKnownWeight={lastKnownWeight}
+      bodyweightKg={bodyweightKg}
       userId={user!.id}
     />
   );

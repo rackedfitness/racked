@@ -70,6 +70,21 @@ function suggestedWeightFor(
   return historical ?? null;
 }
 
+// The actual load lifted for stats/PR purposes. Bodyweight exercises use the
+// user's logged bodyweight directly (no weight input at all); weighted
+// bodyweight exercises add the logged "added weight" input on top of it.
+function effectiveSetWeight(
+  equipment: string | null | undefined,
+  rawWeight: number | null,
+  bodyweightKg: number | null
+): number | null {
+  if (equipment === "bodyweight") return bodyweightKg;
+  if (equipment === "weighted_bodyweight") {
+    return bodyweightKg != null ? bodyweightKg + (rawWeight ?? 0) : rawWeight;
+  }
+  return rawWeight;
+}
+
 export default function WorkoutBuilder({
   exercises,
   initialTitle = "Workout",
@@ -77,6 +92,7 @@ export default function WorkoutBuilder({
   savePlanMode = false,
   bestEver = {},
   lastKnownWeight = {},
+  bodyweightKg = null,
   userId,
 }: {
   exercises: Exercise[];
@@ -85,6 +101,7 @@ export default function WorkoutBuilder({
   savePlanMode?: boolean;
   bestEver?: Record<string, number>;
   lastKnownWeight?: Record<string, number>;
+  bodyweightKg?: number | null;
   userId?: string;
 }) {
   const [title, setTitle] = useState(initialTitle);
@@ -190,13 +207,15 @@ export default function WorkoutBuilder({
   // later set beats an earlier "PR" set, the earlier badge is cleared.
   function recomputeExercisePRs(
     sets: BuilderSet[],
-    priorBest: number
+    priorBest: number,
+    equipment: string | null
   ): { sets: BuilderSet[]; bestIndex: number | null } {
     let bestIndex: number | null = null;
     let bestEst1RM = priorBest;
     sets.forEach((s, i) => {
-      if (s.completed && s.weight && s.reps) {
-        const est1RM = estimateOneRepMax(s.weight, s.reps);
+      const weight = effectiveSetWeight(equipment, s.weight, bodyweightKg);
+      if (s.completed && weight && s.reps) {
+        const est1RM = estimateOneRepMax(weight, s.reps);
         if (est1RM > bestEst1RM) {
           bestEst1RM = est1RM;
           bestIndex = i;
@@ -212,16 +231,24 @@ export default function WorkoutBuilder({
     const set = ex.sets[idx];
     const willComplete = !set.completed;
 
-    const effectiveWeight = willComplete
-      ? (set.weight ?? suggestedWeightFor(ex.sets, idx, lastKnownWeight[exerciseId]))
-      : set.weight;
+    // No weight input at all for bodyweight exercises, and cardio sets never
+    // populate weight either — skip the auto-fill-from-history step for both.
+    // For weighted bodyweight, only use in-session suggestions (this session's
+    // own "added weight" values); lastKnownWeight holds historical TOTAL
+    // weight (bodyweight + added), which would wildly overstate a suggestion.
+    const hasWeightInput = ex.equipment !== "bodyweight" && ex.category !== "cardio";
+    const historicalFallback = ex.equipment === "weighted_bodyweight" ? undefined : lastKnownWeight[exerciseId];
+    const effectiveWeight =
+      willComplete && hasWeightInput
+        ? (set.weight ?? suggestedWeightFor(ex.sets, idx, historicalFallback))
+        : set.weight;
 
     const toggledSets = ex.sets.map((s, i) =>
       i === idx ? { ...s, completed: willComplete, weight: effectiveWeight } : s
     );
 
     const priorBest = bestEver[exerciseId] ?? 0;
-    const { sets: finalSets, bestIndex } = recomputeExercisePRs(toggledSets, priorBest);
+    const { sets: finalSets, bestIndex } = recomputeExercisePRs(toggledSets, priorBest, ex.equipment);
 
     setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, sets: finalSets } : e)));
 
@@ -280,7 +307,10 @@ export default function WorkoutBuilder({
 
         const payload: ExerciseInput[] = selected.map((e) => ({
           exerciseId: e.exerciseId,
-          sets: e.sets,
+          sets: e.sets.map((s) => ({
+            ...s,
+            weight: effectiveSetWeight(e.equipment, s.weight, bodyweightKg),
+          })),
         }));
         await saveWorkout({
           title,
@@ -411,9 +441,14 @@ export default function WorkoutBuilder({
                     <span>Distance</span>
                     <span>Time</span>
                   </>
+                ) : ex.equipment === "bodyweight" ? (
+                  <>
+                    <span>Bodyweight</span>
+                    <span>Reps</span>
+                  </>
                 ) : (
                   <>
-                    <span>Weight</span>
+                    <span>{ex.equipment === "weighted_bodyweight" ? "Added" : "Weight"}</span>
                     <span>Reps</span>
                   </>
                 )}
@@ -469,6 +504,24 @@ export default function WorkoutBuilder({
                           className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
                         />
                       </>
+                    ) : ex.equipment === "bodyweight" ? (
+                      <>
+                        <span className="tnum flex w-full min-w-0 items-center justify-center rounded-md border border-card-border bg-background px-2 py-2 text-muted">
+                          {bodyweightKg != null ? `${bodyweightKg}kg` : "BW"}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={set.reps ?? ""}
+                          onChange={(e) =>
+                            updateSet(ex.exerciseId, idx, {
+                              reps: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder="reps"
+                          className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
+                        />
+                      </>
                     ) : (
                       <>
                         <input
@@ -480,7 +533,13 @@ export default function WorkoutBuilder({
                               weight: e.target.value === "" ? null : Number(e.target.value),
                             })
                           }
-                          placeholder={suggested != null ? String(suggested) : "kg"}
+                          placeholder={
+                            ex.equipment === "weighted_bodyweight"
+                              ? "+kg"
+                              : suggested != null
+                                ? String(suggested)
+                                : "kg"
+                          }
                           className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
                         />
                         <input

@@ -124,7 +124,11 @@ export default function ExercisePicker({
                     <ExerciseIcon equipment={ex.equipment} size={24} />
                     <span className="truncate">{ex.name}</span>
                   </span>
-                  {ex.equipment && <span className="shrink-0 text-xs text-muted">{ex.equipment}</span>}
+                  {ex.equipment && (
+                    <span className="shrink-0 text-xs text-muted">
+                      {ex.equipment === "weighted_bodyweight" ? "weighted" : ex.equipment}
+                    </span>
+                  )}
                 </button>
               ))}
               {categoryResults.length === 0 && (
