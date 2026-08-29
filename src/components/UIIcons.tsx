@@ -74,6 +74,28 @@ export function ArrowDownIcon({ size = 20, className }: IconProps) {
   );
 }
 
+export function SwapIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8h13.5M14 4.5L17.5 8 14 11.5" />
+      <path d="M20 16H6.5M10 12.5L6.5 16 10 19.5" />
+    </svg>
+  );
+}
+
+export function GripIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
+      <circle cx="9" cy="6" r="1.6" />
+      <circle cx="15" cy="6" r="1.6" />
+      <circle cx="9" cy="12" r="1.6" />
+      <circle cx="15" cy="12" r="1.6" />
+      <circle cx="9" cy="18" r="1.6" />
+      <circle cx="15" cy="18" r="1.6" />
+    </svg>
+  );
+}
+
 export function FlameIcon({ size = 24, className, color = "#ff8a3d" }: IconProps & { color?: string }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill={color}>

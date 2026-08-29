@@ -47,6 +47,7 @@ export default async function NewWorkoutPage({
     category: string | null;
     targetSets: number;
     targetReps: number | null;
+    templateExerciseId?: string;
   }[] = [];
   let initialTitle = "Workout";
 
@@ -59,7 +60,7 @@ export default async function NewWorkoutPage({
 
     const { data: templateExercises } = await supabase
       .from("workout_template_exercises")
-      .select("exercise_id, order_index, target_sets, target_reps, exercises(name, equipment, category)")
+      .select("id, exercise_id, order_index, target_sets, target_reps, exercises(name, equipment, category)")
       .eq("template_id", templateId)
       .order("order_index");
 
@@ -74,6 +75,7 @@ export default async function NewWorkoutPage({
         category: exerciseInfo?.category ?? null,
         targetSets: te.target_sets,
         targetReps: te.target_reps,
+        templateExerciseId: te.id,
       };
     });
   }

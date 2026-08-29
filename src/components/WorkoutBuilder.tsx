@@ -12,7 +12,7 @@ import ExercisePicker from "@/components/ExercisePicker";
 import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
-import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon } from "@/components/UIIcons";
+import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon } from "@/components/UIIcons";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -22,6 +22,11 @@ type BuilderExercise = {
   equipment: string | null;
   category: string | null;
   sets: BuilderSet[];
+  // Present only for exercises that started as a slot in a saved plan —
+  // lets a swap during this session offer to update the plan permanently.
+  templateExerciseId?: string;
+  originalExerciseId?: string;
+  originalName?: string;
 };
 
 type InitialExercise = {
@@ -31,6 +36,7 @@ type InitialExercise = {
   category: string | null;
   targetSets: number;
   targetReps: number | null;
+  templateExerciseId?: string;
 };
 
 // A simple medal glyph (ribbon flags + disc) for PR-celebration confetti.
@@ -121,6 +127,7 @@ export default function WorkoutBuilder({
       name: ie.name,
       equipment: ie.equipment,
       category: ie.category,
+      templateExerciseId: ie.templateExerciseId,
       sets: Array.from({ length: ie.targetSets }, () => ({
         weight: null,
         reps: ie.targetReps,
@@ -131,6 +138,19 @@ export default function WorkoutBuilder({
       })),
     }))
   );
+  const [swapForExerciseId, setSwapForExerciseId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
+  const dragStateRef = useRef<{
+    exerciseId: string;
+    startY: number;
+    timer: ReturnType<typeof setTimeout> | null;
+    active: boolean;
+  } | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [saveAsPlan, setSaveAsPlan] = useState(false);
+  const [planName, setPlanName] = useState("");
+  const [confirmedSwapIds, setConfirmedSwapIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -158,6 +178,108 @@ export default function WorkoutBuilder({
     ]);
   }
 
+  function confirmSwap(newExercise: Exercise) {
+    const swappingId = swapForExerciseId;
+    setSwapForExerciseId(null);
+    if (!swappingId) return;
+
+    setSelected((prev) =>
+      prev.map((e) => {
+        if (e.exerciseId !== swappingId) return e;
+        return {
+          ...e,
+          exerciseId: newExercise.id,
+          name: newExercise.name,
+          equipment: newExercise.equipment,
+          category: newExercise.category,
+          originalExerciseId: e.originalExerciseId ?? e.exerciseId,
+          originalName: e.originalName ?? e.name,
+          sets: e.sets.map(() => ({
+            weight: null,
+            reps: null,
+            distanceKm: null,
+            durationSeconds: null,
+            isWarmup: false,
+            completed: false,
+          })),
+        };
+      })
+    );
+  }
+
+  // Long-press (via the grip handle) then drag to reorder. Uses Pointer
+  // Events (not native HTML5 drag-and-drop, which doesn't work reliably on
+  // touch) with pointer capture so move/up keep firing on the handle even as
+  // the finger moves elsewhere. Only the dragged row gets a live translateY;
+  // reordering the underlying array happens as soon as the pointer crosses a
+  // neighbor's midpoint, then the drag re-anchors to avoid a visual jump.
+  function handleGripPointerDown(exerciseId: string, e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const startY = e.clientY;
+    const pointerId = e.pointerId;
+    const target = e.currentTarget;
+    const timer = setTimeout(() => {
+      if (dragStateRef.current?.exerciseId === exerciseId) {
+        dragStateRef.current.active = true;
+        setDraggingId(exerciseId);
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          // ignore — capture is a nice-to-have, drag still works without it
+        }
+        navigator.vibrate?.(15);
+      }
+    }, 350);
+    dragStateRef.current = { exerciseId, startY, timer, active: false };
+  }
+
+  function handleGripPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const ds = dragStateRef.current;
+    if (!ds) return;
+
+    if (!ds.active) {
+      if (Math.abs(e.clientY - ds.startY) > 10 && ds.timer) {
+        clearTimeout(ds.timer);
+        dragStateRef.current = null;
+      }
+      return;
+    }
+
+    e.preventDefault();
+    setDragOffsetY(e.clientY - ds.startY);
+
+    const draggedIdx = selected.findIndex((x) => x.exerciseId === ds.exerciseId);
+    if (draggedIdx === -1) return;
+
+    let newIndex = 0;
+    selected.forEach((ex, idx) => {
+      if (idx === draggedIdx) return;
+      const el = rowRefs.current[ex.exerciseId];
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (e.clientY > rect.top + rect.height / 2) newIndex++;
+    });
+
+    if (newIndex !== draggedIdx) {
+      setSelected((prev) => {
+        const arr = [...prev];
+        const [moved] = arr.splice(draggedIdx, 1);
+        arr.splice(newIndex, 0, moved);
+        return arr;
+      });
+      ds.startY = e.clientY;
+      setDragOffsetY(0);
+    }
+  }
+
+  function handleGripPointerEnd() {
+    const ds = dragStateRef.current;
+    if (ds?.timer) clearTimeout(ds.timer);
+    dragStateRef.current = null;
+    setDraggingId(null);
+    setDragOffsetY(0);
+  }
+
   const sessionCounts: Record<string, number> = {};
   for (const ex of selected) {
     if (!ex.category) continue;
@@ -165,6 +287,10 @@ export default function WorkoutBuilder({
     if (workingSets > 0) sessionCounts[ex.category] = (sessionCounts[ex.category] ?? 0) + workingSets;
   }
   const hasSessionActivity = Object.keys(sessionCounts).length > 0;
+
+  const planSwaps = selected.filter(
+    (e) => e.templateExerciseId && e.originalExerciseId && e.originalExerciseId !== e.exerciseId
+  );
 
   function removeExercise(exerciseId: string) {
     setSelected((prev) => prev.filter((e) => e.exerciseId !== exerciseId));
@@ -321,6 +447,10 @@ export default function WorkoutBuilder({
           isPublic,
           photoUrl,
           startedAt,
+          alsoSaveAsPlan: saveAsPlan ? { name: planName.trim() || title } : null,
+          planSwaps: planSwaps
+            .filter((e) => confirmedSwapIds.has(e.templateExerciseId as string))
+            .map((e) => ({ templateExerciseId: e.templateExerciseId as string, newExerciseId: e.exerciseId })),
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
@@ -383,6 +513,15 @@ export default function WorkoutBuilder({
         />
       )}
 
+      {swapForExerciseId && (
+        <ExercisePicker
+          exercises={exercises}
+          excludeIds={selected.map((s) => s.exerciseId)}
+          onAdd={confirmSwap}
+          onClose={() => setSwapForExerciseId(null)}
+        />
+      )}
+
       {detailExerciseId &&
         (() => {
           const detailEx = selected.find((e) => e.exerciseId === detailExerciseId);
@@ -399,12 +538,36 @@ export default function WorkoutBuilder({
 
       <div className="flex flex-col gap-6">
         {selected.map((ex) => (
-          <div key={ex.exerciseId} className="rounded-lg border border-card-border bg-card p-3">
-            <div className="relative mb-2 flex items-center justify-between gap-2">
+          <div
+            key={ex.exerciseId}
+            ref={(el) => {
+              rowRefs.current[ex.exerciseId] = el;
+            }}
+            style={
+              draggingId === ex.exerciseId
+                ? { transform: `translateY(${dragOffsetY}px)`, position: "relative", zIndex: 30 }
+                : undefined
+            }
+            className={`rounded-lg border border-card-border bg-card p-3 ${
+              draggingId === ex.exerciseId ? "shadow-xl" : ""
+            }`}
+          >
+            <div className="relative mb-2 flex items-center gap-1">
+              <button
+                type="button"
+                onPointerDown={(e) => handleGripPointerDown(ex.exerciseId, e)}
+                onPointerMove={handleGripPointerMove}
+                onPointerUp={handleGripPointerEnd}
+                onPointerCancel={handleGripPointerEnd}
+                aria-label="Drag to reorder"
+                className="-m-2 flex h-9 w-9 shrink-0 cursor-grab touch-none items-center justify-center text-muted active:cursor-grabbing active:text-foreground"
+              >
+                <GripIcon size={18} />
+              </button>
               <button
                 type="button"
                 onClick={() => setDetailExerciseId(ex.exerciseId)}
-                className="flex min-w-0 items-center gap-2 text-left active:opacity-70"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left active:opacity-70"
               >
                 <ExerciseIcon equipment={ex.equipment} />
                 <h3 className="truncate font-semibold text-accent underline decoration-accent/40 underline-offset-2">
@@ -413,6 +576,14 @@ export default function WorkoutBuilder({
                     <span className="text-foreground no-underline"> ({equipmentLabel(ex.equipment)})</span>
                   )}
                 </h3>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSwapForExerciseId(ex.exerciseId)}
+                aria-label="Swap exercise"
+                className="-m-2 flex h-9 w-9 shrink-0 items-center justify-center text-muted active:text-foreground"
+              >
+                <SwapIcon size={18} />
               </button>
               <button
                 type="button"
@@ -647,6 +818,37 @@ export default function WorkoutBuilder({
               Add a photo or description, then post it to your feed or keep it private.
             </p>
 
+            {planSwaps.length > 0 && (
+              <div className="mb-3 flex flex-col gap-2 rounded-md border border-card-border bg-background p-3">
+                <p className="text-sm font-medium">Update your plan?</p>
+                <p className="text-xs text-muted">
+                  You swapped exercises from your plan this session. Check any you want to keep permanently.
+                </p>
+                {planSwaps.map((e) => (
+                  <label key={e.templateExerciseId} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={confirmedSwapIds.has(e.templateExerciseId as string)}
+                      onChange={(ev) =>
+                        setConfirmedSwapIds((prev) => {
+                          const next = new Set(prev);
+                          const id = e.templateExerciseId as string;
+                          if (ev.target.checked) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        })
+                      }
+                      className="h-4 w-4 shrink-0 accent-accent"
+                    />
+                    <span>
+                      Replace <span className="text-muted">{e.originalName}</span> with{" "}
+                      <span className="font-medium">{e.name}</span> in the plan
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             <input
               ref={photoInputRef}
               type="file"
@@ -693,6 +895,27 @@ export default function WorkoutBuilder({
               maxLength={280}
               className="mb-3 w-full resize-none rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
             />
+
+            <label className="mb-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={saveAsPlan}
+                onChange={(e) => {
+                  setSaveAsPlan(e.target.checked);
+                  if (e.target.checked && !planName) setPlanName(title);
+                }}
+                className="h-4 w-4 shrink-0 accent-accent"
+              />
+              Also save as a reusable plan
+            </label>
+            {saveAsPlan && (
+              <input
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                placeholder="Plan name"
+                className="mb-3 w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
+              />
+            )}
 
             <div className="flex flex-col gap-2">
               <button
