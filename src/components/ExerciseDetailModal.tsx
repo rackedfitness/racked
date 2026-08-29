@@ -66,6 +66,13 @@ export default function ExerciseDetailModal({
           </div>
         </div>
 
+        {equipment === "dumbbell" && (
+          <p className="mb-5 rounded-lg border border-card-border bg-card p-3 text-sm text-muted">
+            Log the weight of a single dumbbell here, not the combined total of both — a 20kg set means two 20kg
+            dumbbells.
+          </p>
+        )}
+
         {pose && (
           <div className="mb-5 flex items-center justify-center gap-5 rounded-lg border border-card-border bg-card py-4">
             <div className="flex flex-col items-center gap-1.5">
