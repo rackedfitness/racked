@@ -7,18 +7,39 @@ type Tier = {
   glow: string;
   size: number;
   flicker: "none" | "soft" | "strong";
+  pulse: boolean;
+  mythic?: boolean;
   label: string;
 };
 
 // Escalating visual intensity the longer the streak runs — bigger, hotter,
 // more animated flame the further up the list, mirroring the rank-tier
 // pattern used elsewhere in the app (see rankSystem.ts / BodyMap intensity).
+// Tier boundaries match STREAK_MILESTONES (stats.ts) exactly, so hitting a
+// milestone is also the moment the flame visibly levels up. The color path
+// runs hotter than real fire physics on purpose — ember -> orange -> red ->
+// purple -> blue-white -> prismatic — a rarity ramp gamers/lifters read
+// instantly as "max level", not a literal temperature chart.
 const TIERS: Tier[] = [
-  { minStreak: 1, color: "#ff9f4d", glow: "#ff9f4d", size: 30, flicker: "none", label: "Warming up" },
-  { minStreak: 3, color: "#ff8a3d", glow: "#ff8a3d", size: 34, flicker: "soft", label: "Heating up" },
-  { minStreak: 7, color: "#ff6a1a", glow: "#ff6a1a", size: 38, flicker: "soft", label: "On fire" },
-  { minStreak: 14, color: "#ff4d00", glow: "#ff7a00", size: 44, flicker: "strong", label: "Blazing" },
-  { minStreak: 30, color: "#ff2d00", glow: "#ffb000", size: 52, flicker: "strong", label: "Unstoppable" },
+  { minStreak: 1, color: "#ffb84d", glow: "#ffb84d", size: 28, flicker: "none", pulse: false, label: "Warming Up" },
+  { minStreak: 3, color: "#ff8a3d", glow: "#ff8a3d", size: 34, flicker: "soft", pulse: false, label: "Heating Up" },
+  { minStreak: 7, color: "#ff6a1a", glow: "#ff6a1a", size: 40, flicker: "soft", pulse: false, label: "On Fire" },
+  { minStreak: 14, color: "#ff3d00", glow: "#ff7a00", size: 48, flicker: "strong", pulse: true, label: "Blazing" },
+  { minStreak: 30, color: "#e0003c", glow: "#ff2d55", size: 56, flicker: "strong", pulse: true, label: "Inferno" },
+  { minStreak: 60, color: "#c026ff", glow: "#ff29e0", size: 66, flicker: "strong", pulse: true, label: "Supernova" },
+  { minStreak: 100, color: "#22c1ff", glow: "#eafcff", size: 78, flicker: "strong", pulse: true, label: "Legendary" },
+  // A vivid (not white) base color so the hue-rotate shimmer below actually
+  // has saturation to cycle through — white has none, so it'd barely move.
+  {
+    minStreak: 365,
+    color: "#ff2ee0",
+    glow: "#ffffff",
+    size: 92,
+    flicker: "strong",
+    pulse: true,
+    mythic: true,
+    label: "Mythic",
+  },
 ];
 
 function tierFor(streak: number): Tier {
@@ -38,8 +59,9 @@ export default function StreakCard({
 }) {
   const tier = streak > 0 ? tierFor(streak) : null;
   const progress = Math.min(100, (streak / Math.max(longestStreak, 1)) * 100);
-  const flickerClass =
-    tier?.flicker === "strong"
+  const flickerClass = tier?.mythic
+    ? "animate-flame-mythic"
+    : tier?.flicker === "strong"
       ? "animate-flame-flicker-strong"
       : tier?.flicker === "soft"
         ? "animate-flame-flicker"
@@ -48,7 +70,7 @@ export default function StreakCard({
   return (
     <div
       className={`relative overflow-hidden rounded-lg border p-4 transition-colors ${
-        tier?.flicker === "strong" ? "animate-blaze-pulse" : ""
+        tier?.pulse ? "animate-blaze-pulse" : ""
       }`}
       style={{
         borderColor: tier ? `${tier.color}55` : "var(--card-border)",

@@ -161,6 +161,27 @@ h3 {
   transform-origin: 50% 90%;
 }
 
+/* mythic (365+ day streak): the flicker transform plus a shifting rainbow
+   shimmer on top — reserved for the single most extreme streak tier */
+@keyframes flame-prismatic {
+  0% {
+    filter: hue-rotate(0deg) brightness(1.15) saturate(1.6);
+  }
+  50% {
+    filter: hue-rotate(180deg) brightness(1.35) saturate(1.6);
+  }
+  100% {
+    filter: hue-rotate(360deg) brightness(1.15) saturate(1.6);
+  }
+}
+
+.animate-flame-mythic {
+  animation:
+    flame-flicker-strong 1.4s ease-in-out infinite,
+    flame-prismatic 3s linear infinite;
+  transform-origin: 50% 90%;
+}
+
 @keyframes blaze-pulse {
   0%,
   100% {
