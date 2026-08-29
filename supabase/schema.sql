@@ -629,6 +629,14 @@ values
 on conflict do nothing;
 
 -- =========================================
+-- seed more cardio
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Walking', 'cardio', 'bodyweight')
+on conflict do nothing;
+
+-- =========================================
 -- storage: profile picture uploads
 -- =========================================
 insert into storage.buckets (id, name, public)
