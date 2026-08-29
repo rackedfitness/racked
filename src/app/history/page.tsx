@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { attachPRCounts, computePREvents, formatVolume, type WorkoutLite } from "@/lib/stats";
 import { computeLiftRank, liftKeyForExerciseName, type Sex } from "@/lib/rankSystem";
 import RankBadge from "@/components/RankBadge";
+import { ArrowLeftIcon } from "@/components/UIIcons";
 
 export default async function HistoryPage({
   searchParams,
@@ -84,7 +85,12 @@ export default async function HistoryPage({
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">History</h1>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-muted">
+            <ArrowLeftIcon size={20} />
+          </Link>
+          <h1 className="text-xl font-bold">History</h1>
+        </div>
         <Link
           href="/history/body-map"
           className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground"

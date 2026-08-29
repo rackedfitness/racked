@@ -6,6 +6,7 @@ import { workoutVolume, formatVolume, computeStreakDays, computeBestEverMap, typ
 import { computeAllLiftRanks, bestOverallRank, type Sex } from "@/lib/rankSystem";
 import RankSection from "@/components/RankSection";
 import Avatar from "@/components/Avatar";
+import BackButton from "@/components/BackButton";
 import { GearIcon } from "@/components/UIIcons";
 
 export default async function ProfilePage({
@@ -97,6 +98,7 @@ export default async function ProfilePage({
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {!isSelf && <BackButton />}
           <Avatar url={profile.avatar_url} name={profile.display_name ?? profile.username} size="lg" />
           <div>
             <h1 className="text-xl font-bold">{profile.display_name ?? profile.username}</h1>

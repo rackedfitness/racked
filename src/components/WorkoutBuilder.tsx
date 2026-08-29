@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
 import { estimateOneRepMax, formatDuration } from "@/lib/stats";
@@ -11,7 +12,7 @@ import ExercisePicker from "@/components/ExercisePicker";
 import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
-import { MenuDotsIcon, CheckIcon, CloseIcon } from "@/components/UIIcons";
+import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon } from "@/components/UIIcons";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -104,6 +105,7 @@ export default function WorkoutBuilder({
   bodyweightKg?: number | null;
   userId?: string;
 }) {
+  const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [startedAt] = useState(() => new Date().toISOString());
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -346,6 +348,14 @@ export default function WorkoutBuilder({
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Back"
+          className="shrink-0 text-muted active:text-foreground"
+        >
+          <ArrowLeftIcon size={20} />
+        </button>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
+import BackButton from "@/components/BackButton";
 import { computePREvents, formatDuration, formatVolume, type WorkoutLite } from "@/lib/stats";
 
 function formatWorkoutDuration(seconds: number): string {
@@ -74,7 +75,10 @@ export default async function WorkoutDetailPage({
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold">{workout.title}</h1>
+          <div className="flex items-center gap-2">
+            <BackButton />
+            <h1 className="truncate text-xl font-bold">{workout.title}</h1>
+          </div>
           <div className="mt-1.5 flex items-center gap-2">
             <Avatar
               url={author?.avatar_url}

@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PersonRow from "@/components/PersonRow";
+import { ArrowLeftIcon } from "@/components/UIIcons";
 
 export default async function PeoplePage({
   searchParams,
@@ -35,7 +37,12 @@ export default async function PeoplePage({
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-6">
-      <h1 className="text-xl font-bold">Find friends</h1>
+      <div className="flex items-center gap-3">
+        <Link href="/feed" className="text-muted">
+          <ArrowLeftIcon size={20} />
+        </Link>
+        <h1 className="text-xl font-bold">Find friends</h1>
+      </div>
 
       <form className="flex gap-2">
         <input
