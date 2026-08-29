@@ -39,6 +39,8 @@ export type WorkoutSet = {
   set_index: number;
   weight: number | null;
   reps: number | null;
+  distance_km: number | null;
+  duration_seconds: number | null;
   is_warmup: boolean;
   completed: boolean;
 };

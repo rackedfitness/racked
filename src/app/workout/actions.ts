@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 export type SetInput = {
   weight: number | null;
   reps: number | null;
+  distanceKm: number | null;
+  durationSeconds: number | null;
   isWarmup: boolean;
   completed: boolean;
 };
@@ -74,6 +76,8 @@ export async function saveWorkout(input: {
       set_index: idx,
       weight: s.weight,
       reps: s.reps,
+      distance_km: s.distanceKm,
+      duration_seconds: s.durationSeconds,
       is_warmup: s.isWarmup,
       completed: s.completed,
     }));

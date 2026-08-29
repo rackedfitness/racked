@@ -88,6 +88,8 @@ export default function WorkoutBuilder({
       sets: Array.from({ length: ie.targetSets }, () => ({
         weight: null,
         reps: ie.targetReps,
+        distanceKm: null,
+        durationSeconds: null,
         isWarmup: false,
         completed: false,
       })),
@@ -128,7 +130,20 @@ export default function WorkoutBuilder({
     setSelected((prev) =>
       prev.map((e) =>
         e.exerciseId === exerciseId
-          ? { ...e, sets: [...e.sets, { weight: null, reps: null, isWarmup: false, completed: false }] }
+          ? {
+              ...e,
+              sets: [
+                ...e.sets,
+                {
+                  weight: null,
+                  reps: null,
+                  distanceKm: null,
+                  durationSeconds: null,
+                  isWarmup: false,
+                  completed: false,
+                },
+              ],
+            }
           : e
       )
     );
@@ -344,8 +359,17 @@ export default function WorkoutBuilder({
             {ex.sets.length > 0 && (
               <div className="mb-2 grid grid-cols-[1.25rem_1fr_1fr_2.5rem_2.25rem] items-center gap-2 px-1 text-xs text-muted">
                 <span>Set</span>
-                <span>Weight</span>
-                <span>Reps</span>
+                {ex.category === "cardio" ? (
+                  <>
+                    <span>Distance</span>
+                    <span>Time</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Weight</span>
+                    <span>Reps</span>
+                  </>
+                )}
                 <span></span>
                 <span></span>
               </div>
@@ -371,30 +395,61 @@ export default function WorkoutBuilder({
                     }`}
                   >
                     <span className="tnum text-sm text-muted">{idx + 1}</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={set.weight ?? ""}
-                      onChange={(e) =>
-                        updateSet(ex.exerciseId, idx, {
-                          weight: e.target.value === "" ? null : Number(e.target.value),
-                        })
-                      }
-                      placeholder={suggested != null ? String(suggested) : "kg"}
-                      className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
-                    />
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={set.reps ?? ""}
-                      onChange={(e) =>
-                        updateSet(ex.exerciseId, idx, {
-                          reps: e.target.value === "" ? null : Number(e.target.value),
-                        })
-                      }
-                      placeholder="reps"
-                      className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
-                    />
+                    {ex.category === "cardio" ? (
+                      <>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={set.distanceKm ?? ""}
+                          onChange={(e) =>
+                            updateSet(ex.exerciseId, idx, {
+                              distanceKm: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder="km"
+                          className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
+                        />
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={set.durationSeconds != null ? set.durationSeconds / 60 : ""}
+                          onChange={(e) =>
+                            updateSet(ex.exerciseId, idx, {
+                              durationSeconds: e.target.value === "" ? null : Math.round(Number(e.target.value) * 60),
+                            })
+                          }
+                          placeholder="min"
+                          className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={set.weight ?? ""}
+                          onChange={(e) =>
+                            updateSet(ex.exerciseId, idx, {
+                              weight: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder={suggested != null ? String(suggested) : "kg"}
+                          className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
+                        />
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={set.reps ?? ""}
+                          onChange={(e) =>
+                            updateSet(ex.exerciseId, idx, {
+                              reps: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder="reps"
+                          className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
+                        />
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => toggleSetComplete(ex.exerciseId, idx)}

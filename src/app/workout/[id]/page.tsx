@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
 
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
 export default async function WorkoutDetailPage({
   params,
 }: {
@@ -36,7 +42,7 @@ export default async function WorkoutDetailPage({
   const { data: sets } = exerciseIds.length
     ? await supabase
         .from("workout_sets")
-        .select("id, workout_exercise_id, set_index, weight, reps, is_warmup")
+        .select("id, workout_exercise_id, set_index, weight, reps, distance_km, duration_seconds, is_warmup")
         .in("workout_exercise_id", exerciseIds)
         .order("set_index")
     : { data: [] };
@@ -91,8 +97,17 @@ export default async function WorkoutDetailPage({
                 {exerciseSets.map((s) => (
                   <div key={s.id} className="tnum flex gap-4 text-sm text-muted">
                     <span className="w-6 text-muted">{s.set_index + 1}</span>
-                    <span>{s.weight ?? "-"} kg</span>
-                    <span>{s.reps ?? "-"} reps</span>
+                    {exerciseInfo?.category === "cardio" ? (
+                      <>
+                        <span>{s.distance_km ?? "-"} km</span>
+                        <span>{s.duration_seconds != null ? formatDuration(s.duration_seconds) : "-"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{s.weight ?? "-"} kg</span>
+                        <span>{s.reps ?? "-"} reps</span>
+                      </>
+                    )}
                     {s.is_warmup && <span className="font-sans text-xs font-normal text-muted">warmup</span>}
                   </div>
                 ))}

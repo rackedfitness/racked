@@ -253,6 +253,8 @@ create table if not exists public.workout_sets (
   set_index int not null default 0,
   weight numeric,
   reps int,
+  distance_km numeric,
+  duration_seconds int,
   is_warmup boolean not null default false,
   completed boolean not null default true
 );
