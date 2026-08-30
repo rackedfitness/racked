@@ -96,6 +96,32 @@ export function GripIcon({ size = 18, className }: IconProps) {
   );
 }
 
+export function HeartIcon({ size = 18, className, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      className={className}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20.5s-7.5-4.6-10-9.3C.5 7.8 2.3 4.5 5.6 4c2-.3 3.9.6 5 2.3l1.4 2 1.4-2c1.1-1.7 3-2.6 5-2.3 3.3.5 5.1 3.8 3.6 7.2-2.5 4.7-10 9.3-10 9.3z" />
+    </svg>
+  );
+}
+
+export function CommentIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h16v11H8.5L4 20.5v-4H4z" />
+    </svg>
+  );
+}
+
 export function FlameIcon({ size = 24, className, color = "#ff8a3d" }: IconProps & { color?: string }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill={color}>

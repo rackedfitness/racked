@@ -317,6 +317,130 @@ create policy "users can delete workout_sets on their own workouts"
   );
 
 -- =========================================
+-- workout_likes
+-- =========================================
+create table if not exists public.workout_likes (
+  workout_id uuid not null references public.workouts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (workout_id, user_id)
+);
+
+alter table public.workout_likes enable row level security;
+
+drop policy if exists "workout_likes follow parent workout visibility" on public.workout_likes;
+create policy "workout_likes follow parent workout visibility"
+  on public.workout_likes for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.workouts w
+      where w.id = workout_likes.workout_id
+        and (
+          w.user_id = auth.uid()
+          or (
+            w.is_public
+            and exists (
+              select 1 from public.follows f
+              where f.follower_id = auth.uid() and f.following_id = w.user_id
+            )
+          )
+        )
+    )
+  );
+
+drop policy if exists "users can like visible workouts as themselves" on public.workout_likes;
+create policy "users can like visible workouts as themselves"
+  on public.workout_likes for insert
+  to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.workouts w
+      where w.id = workout_id
+        and (
+          w.user_id = auth.uid()
+          or (
+            w.is_public
+            and exists (
+              select 1 from public.follows f
+              where f.follower_id = auth.uid() and f.following_id = w.user_id
+            )
+          )
+        )
+    )
+  );
+
+drop policy if exists "users can unlike their own likes" on public.workout_likes;
+create policy "users can unlike their own likes"
+  on public.workout_likes for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- =========================================
+-- workout_comments
+-- =========================================
+create table if not exists public.workout_comments (
+  id uuid primary key default gen_random_uuid(),
+  workout_id uuid not null references public.workouts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.workout_comments enable row level security;
+
+drop policy if exists "workout_comments follow parent workout visibility" on public.workout_comments;
+create policy "workout_comments follow parent workout visibility"
+  on public.workout_comments for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.workouts w
+      where w.id = workout_comments.workout_id
+        and (
+          w.user_id = auth.uid()
+          or (
+            w.is_public
+            and exists (
+              select 1 from public.follows f
+              where f.follower_id = auth.uid() and f.following_id = w.user_id
+            )
+          )
+        )
+    )
+  );
+
+drop policy if exists "users can comment on visible workouts as themselves" on public.workout_comments;
+create policy "users can comment on visible workouts as themselves"
+  on public.workout_comments for insert
+  to authenticated
+  with check (
+    user_id = auth.uid()
+    and length(trim(body)) > 0
+    and exists (
+      select 1 from public.workouts w
+      where w.id = workout_id
+        and (
+          w.user_id = auth.uid()
+          or (
+            w.is_public
+            and exists (
+              select 1 from public.follows f
+              where f.follower_id = auth.uid() and f.following_id = w.user_id
+            )
+          )
+        )
+    )
+  );
+
+drop policy if exists "users can delete their own comments" on public.workout_comments;
+create policy "users can delete their own comments"
+  on public.workout_comments for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- =========================================
 -- workout_templates (reusable workout plans, owner-only)
 -- =========================================
 create table if not exists public.workout_templates (

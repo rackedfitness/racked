@@ -6,6 +6,8 @@ import PostWorkoutButton from "@/components/PostWorkoutButton";
 import BackButton from "@/components/BackButton";
 import { computePREvents, formatDuration, formatVolume, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
+import { toggleLike, addComment, deleteComment } from "@/app/social/actions";
+import { HeartIcon } from "@/components/UIIcons";
 
 function formatWorkoutDuration(seconds: number): string {
   const totalMinutes = Math.round(seconds / 60);
@@ -21,6 +23,9 @@ export default async function WorkoutDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: workout } = await supabase
     .from("workouts")
@@ -103,6 +108,24 @@ export default async function WorkoutDetailPage({
     (e) => e.workoutId === id
   );
 
+  const { count: likeCount } = await supabase
+    .from("workout_likes")
+    .select("*", { count: "exact", head: true })
+    .eq("workout_id", id);
+
+  const { data: myLike } = await supabase
+    .from("workout_likes")
+    .select("workout_id")
+    .eq("workout_id", id)
+    .eq("user_id", user!.id)
+    .maybeSingle();
+
+  const { data: comments } = await supabase
+    .from("workout_comments")
+    .select("id, body, created_at, user_id, profiles(username, display_name, avatar_url)")
+    .eq("workout_id", id)
+    .order("created_at", { ascending: true });
+
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
       <div className="flex items-start justify-between gap-3">
@@ -140,6 +163,21 @@ export default async function WorkoutDetailPage({
           className="w-full rounded-lg border border-card-border object-cover"
         />
       )}
+
+      <div className="flex items-center gap-4">
+        <form action={toggleLike.bind(null, id)}>
+          <button
+            type="submit"
+            className={`flex items-center gap-1.5 text-sm ${myLike ? "text-accent" : "text-muted"}`}
+          >
+            <HeartIcon size={20} filled={Boolean(myLike)} />
+            {(likeCount ?? 0) > 0 && <span className="tnum">{likeCount}</span>}
+          </button>
+        </form>
+        <a href="#comments" className="flex items-center gap-1.5 text-sm text-muted">
+          {(comments?.length ?? 0)} comment{(comments?.length ?? 0) === 1 ? "" : "s"}
+        </a>
+      </div>
 
       {durationSeconds !== null && (
         <div
@@ -213,6 +251,65 @@ export default async function WorkoutDetailPage({
             </div>
           );
         })}
+      </div>
+
+      <div id="comments" className="flex flex-col gap-3 scroll-mt-6">
+        <h2 className="font-semibold">
+          Comments{(comments?.length ?? 0) > 0 ? ` (${comments!.length})` : ""}
+        </h2>
+
+        <form action={addComment.bind(null, id)} className="flex gap-2">
+          <input
+            key={comments?.length ?? 0}
+            name="body"
+            maxLength={500}
+            placeholder="Add a comment..."
+            className="flex-1 rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink"
+          >
+            Post
+          </button>
+        </form>
+
+        <div className="flex flex-col gap-3">
+          {(comments ?? []).map((c) => {
+            const commenter = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
+            return (
+              <div key={c.id} className="flex items-start gap-2.5">
+                <Avatar
+                  url={commenter?.avatar_url}
+                  name={commenter?.display_name ?? commenter?.username ?? "?"}
+                  size="sm"
+                />
+                <div className="min-w-0 flex-1 rounded-lg border border-card-border bg-card p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">
+                      {commenter?.display_name ?? commenter?.username}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap text-sm">{c.body}</p>
+                  {c.user_id === user?.id && (
+                    <form action={deleteComment.bind(null, c.id, id)} className="mt-1">
+                      <button type="submit" className="text-xs text-muted active:text-red-400">
+                        Delete
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {(comments?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted">No comments yet.</p>
+          )}
+        </div>
       </div>
 
       <PostWorkoutButton title={workout.title} summary={summary} />
