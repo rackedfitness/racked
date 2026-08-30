@@ -15,7 +15,13 @@ import BodyMap from "@/components/BodyMap";
 import Avatar from "@/components/Avatar";
 import MuscleBreakdownList from "@/components/MuscleBreakdownList";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo?: string }>;
+}) {
+  const { demo } = await searchParams;
+  const streakDemoMode = demo === "streak";
   const supabase = await createClient();
   const {
     data: { user },
@@ -118,7 +124,12 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <StreakCard streak={streak} longestStreak={longestStreak} milestone={milestone} />
+      <StreakCard
+        streak={streak}
+        longestStreak={longestStreak}
+        milestone={milestone}
+        demoMode={streakDemoMode}
+      />
 
       <div>
         <div className="mb-2 flex items-center justify-between">

@@ -1,5 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { FlameIcon } from "@/components/UIIcons";
 import { SnowflakeIcon } from "@/components/StreakIcons";
+import { nextStreakMilestone } from "@/lib/stats";
+
+const DEMO_MAX_STREAK = 380;
 
 type Tier = {
   minStreak: number;
@@ -49,14 +55,33 @@ function tierFor(streak: number): Tier {
 }
 
 export default function StreakCard({
-  streak,
-  longestStreak,
-  milestone,
+  streak: realStreak,
+  longestStreak: realLongestStreak,
+  milestone: realMilestone,
+  demoMode = false,
 }: {
   streak: number;
   longestStreak: number;
   milestone: number | null;
+  // For filming/demo purposes only (e.g. ?demo=streak) — ticks the displayed
+  // streak up by a day every second instead of showing the real value, so
+  // every tier can be filmed in one continuous take. Never wired to real data.
+  demoMode?: boolean;
 }) {
+  const [demoStreak, setDemoStreak] = useState(0);
+
+  useEffect(() => {
+    if (!demoMode) return;
+    const interval = setInterval(() => {
+      setDemoStreak((prev) => Math.min(DEMO_MAX_STREAK, prev + 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [demoMode]);
+
+  const streak = demoMode ? demoStreak : realStreak;
+  const longestStreak = demoMode ? Math.max(demoStreak, 1) : realLongestStreak;
+  const milestone = demoMode ? nextStreakMilestone(demoStreak) : realMilestone;
+
   const tier = streak > 0 ? tierFor(streak) : null;
   const progress = Math.min(100, (streak / Math.max(longestStreak, 1)) * 100);
   const flickerClass = tier?.mythic
