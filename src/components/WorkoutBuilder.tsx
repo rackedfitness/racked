@@ -14,6 +14,8 @@ import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
 import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon } from "@/components/UIIcons";
 import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar";
+import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
+import { computeLiftRank, liftKeyForExerciseName, RANK_TIERS, type RankTier, type Sex } from "@/lib/rankSystem";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -119,6 +121,8 @@ export default function WorkoutBuilder({
   bestEver = {},
   lastKnownWeight = {},
   bodyweightKg = null,
+  age = null,
+  sex = null,
   userId,
 }: {
   exercises: Exercise[];
@@ -129,6 +133,8 @@ export default function WorkoutBuilder({
   bestEver?: Record<string, number>;
   lastKnownWeight?: Record<string, number>;
   bodyweightKg?: number | null;
+  age?: number | null;
+  sex?: Sex | null;
   userId?: string;
 }) {
   const router = useRouter();
@@ -181,6 +187,9 @@ export default function WorkoutBuilder({
   const [detailExerciseId, setDetailExerciseId] = useState<string | null>(null);
   const [finishChoiceOpen, setFinishChoiceOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [rankUpQueue, setRankUpQueue] = useState<RankUpToast[]>([]);
+  const [rankThemeByExercise, setRankThemeByExercise] = useState<Record<string, RankTier>>({});
+  const canRank = Boolean(bodyweightKg && age && sex);
 
   useEffect(() => {
     if (savePlanMode) return;
@@ -387,7 +396,7 @@ export default function WorkoutBuilder({
     sets: BuilderSet[],
     priorBest: number,
     equipment: string | null
-  ): { sets: BuilderSet[]; bestIndex: number | null } {
+  ): { sets: BuilderSet[]; bestIndex: number | null; bestEst1RM: number } {
     let bestIndex: number | null = null;
     let bestEst1RM = priorBest;
     sets.forEach((s, i) => {
@@ -400,7 +409,7 @@ export default function WorkoutBuilder({
         }
       }
     });
-    return { sets: sets.map((s, i) => ({ ...s, isPR: i === bestIndex })), bestIndex };
+    return { sets: sets.map((s, i) => ({ ...s, isPR: i === bestIndex })), bestIndex, bestEst1RM };
   }
 
   function toggleSetComplete(exerciseId: string, idx: number) {
@@ -426,13 +435,41 @@ export default function WorkoutBuilder({
     );
 
     const priorBest = bestEver[exerciseId] ?? 0;
-    const { sets: finalSets, bestIndex } = recomputeExercisePRs(toggledSets, priorBest, ex.equipment);
+    const { sets: finalSets, bestIndex, bestEst1RM } = recomputeExercisePRs(toggledSets, priorBest, ex.equipment);
 
     setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, sets: finalSets } : e)));
 
     if (willComplete && bestIndex === idx) {
       playPRSound();
       fireConfetti();
+
+      // A rank tier only ever moves on the same event as a PR (it's a
+      // function of the best e1RM), so this is the only place it can happen.
+      if (canRank) {
+        const lift = liftKeyForExerciseName(ex.name);
+        if (lift) {
+          const oldRank = computeLiftRank({
+            lift,
+            oneRepMaxKg: priorBest,
+            bodyweightKg: bodyweightKg!,
+            age: age!,
+            sex: sex!,
+          }).rank;
+          const newRank = computeLiftRank({
+            lift,
+            oneRepMaxKg: bestEst1RM,
+            bodyweightKg: bodyweightKg!,
+            age: age!,
+            sex: sex!,
+          }).rank;
+          const oldTierIndex = RANK_TIERS.findIndex((t) => t.key === oldRank.key);
+          const newTierIndex = RANK_TIERS.findIndex((t) => t.key === newRank.key);
+          if (newTierIndex > oldTierIndex) {
+            setRankUpQueue((q) => [...q, { exerciseName: ex.name, rank: newRank }]);
+            setRankThemeByExercise((prev) => ({ ...prev, [exerciseId]: newRank }));
+          }
+        }
+      }
     } else if (willComplete) {
       playTapSound();
     }
@@ -629,18 +666,25 @@ export default function WorkoutBuilder({
           );
         })()}
 
+      <RankUpOverlay event={rankUpQueue[0] ?? null} onDone={() => setRankUpQueue((q) => q.slice(1))} />
+
       <div className="flex flex-col gap-6">
-        {selected.map((ex) => (
+        {selected.map((ex) => {
+          const rankTheme = rankThemeByExercise[ex.exerciseId];
+          return (
           <div
             key={ex.exerciseId}
             ref={(el) => {
               rowRefs.current[ex.exerciseId] = el;
             }}
-            style={
-              draggingId === ex.exerciseId
+            style={{
+              ...(draggingId === ex.exerciseId
                 ? { transform: `translateY(${dragOffsetY}px)`, position: "relative", zIndex: 30 }
-                : undefined
-            }
+                : undefined),
+              ...(rankTheme
+                ? { borderColor: `${rankTheme.color}88`, boxShadow: `0 0 16px -4px ${rankTheme.color}55` }
+                : undefined),
+            }}
             className={`rounded-lg border border-card-border bg-card p-3 ${
               draggingId === ex.exerciseId ? "shadow-xl" : ""
             }`}
@@ -663,7 +707,12 @@ export default function WorkoutBuilder({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left active:opacity-70"
               >
                 <ExerciseIcon equipment={ex.equipment} />
-                <h3 className="truncate font-semibold text-accent underline decoration-accent/40 underline-offset-2">
+                <h3
+                  className={`truncate font-semibold underline decoration-accent/40 underline-offset-2 ${
+                    rankTheme ? "" : "text-accent"
+                  }`}
+                  style={rankTheme ? { color: rankTheme.color } : undefined}
+                >
                   {ex.name}
                   {equipmentLabel(ex.equipment) && (
                     <span className="text-foreground no-underline"> ({equipmentLabel(ex.equipment)})</span>
@@ -876,7 +925,8 @@ export default function WorkoutBuilder({
               className="mt-2 w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
             />
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <button

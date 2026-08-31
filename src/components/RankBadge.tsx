@@ -30,7 +30,12 @@ export default function RankBadge({
           width={dims}
           height={(dims * 120) / 100}
           className={`object-contain ${isChampion ? "animate-pr-pop" : ""}`}
-          style={{ filter: glow }}
+          // Tailwind's preflight sets img { height: auto }, which overrides
+          // the height attribute above once the real PNG's aspect ratio
+          // (much taller than the assumed 100:120 box) is known — pin both
+          // dimensions via style so object-contain actually has a box to
+          // contain within, instead of the badge blowing out ~2x tall.
+          style={{ filter: glow, width: dims, height: (dims * 120) / 100 }}
           onError={() => setCustomImageFailed(true)}
         />
       ) : (

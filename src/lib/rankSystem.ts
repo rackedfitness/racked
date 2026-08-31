@@ -1,3 +1,5 @@
+import { workoutBestSetPerExercise, type WorkoutLite } from "@/lib/stats";
+
 export type Sex = "male" | "female";
 export type LiftKey =
   | "bench"
@@ -272,4 +274,71 @@ export function formatTopPercent(percentile: number): string {
   const top = 100 - percentile;
   if (top < 1) return "<1%";
   return `${Math.round(top)}%`;
+}
+
+export type RankUpEvent = {
+  workoutId: string;
+  exerciseId: string;
+  lift: LiftKey;
+  label: string;
+  startedAt: string;
+  oneRepMaxKg: number;
+  rank: RankTier;
+};
+
+/**
+ * Walks a user's workouts oldest-first and records every moment a ranked
+ * lift's tier (not just its raw e1RM) increased — e.g. Silver -> Gold. The
+ * very first time a lift gets ranked at all counts as a rank-up too (there's
+ * no tier below Bronze). Mirrors computePREvents in stats.ts, but at the
+ * tier level rather than the raw-number level.
+ */
+export function computeRankUpEvents({
+  workouts,
+  exerciseNames,
+  bodyweightKg,
+  age,
+  sex,
+}: {
+  workouts: WorkoutLite[];
+  exerciseNames: Record<string, string>;
+  bodyweightKg: number;
+  age: number;
+  sex: Sex;
+}): RankUpEvent[] {
+  const chronological = [...workouts].sort(
+    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+  );
+
+  const bestTierIndexByLift = new Map<LiftKey, number>();
+  const events: RankUpEvent[] = [];
+
+  for (const w of chronological) {
+    const bestThisWorkout = workoutBestSetPerExercise(w);
+    for (const [exerciseId, best] of bestThisWorkout) {
+      const name = exerciseNames[exerciseId];
+      if (!name) continue;
+      const lift = liftKeyForExerciseName(name);
+      if (!lift) continue;
+
+      const { rank } = computeLiftRank({ lift, oneRepMaxKg: best.est1RM, bodyweightKg, age, sex });
+      const newIndex = RANK_TIERS.findIndex((t) => t.key === rank.key);
+      const priorIndex = bestTierIndexByLift.get(lift) ?? -1;
+
+      if (newIndex > priorIndex) {
+        events.push({
+          workoutId: w.id,
+          exerciseId,
+          lift,
+          label: LIFT_LABELS[lift],
+          startedAt: w.started_at,
+          oneRepMaxKg: best.est1RM,
+          rank,
+        });
+        bestTierIndexByLift.set(lift, newIndex);
+      }
+    }
+  }
+
+  return events;
 }

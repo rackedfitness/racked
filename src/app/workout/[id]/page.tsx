@@ -8,6 +8,8 @@ import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, t
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
 import { toggleLike, addComment, deleteComment } from "@/app/social/actions";
 import { HeartIcon } from "@/components/UIIcons";
+import { computeRankUpEvents, type Sex } from "@/lib/rankSystem";
+import RankUpRecap from "@/components/RankUpRecap";
 
 export default async function WorkoutDetailPage({
   params,
@@ -30,7 +32,7 @@ export default async function WorkoutDetailPage({
 
   const { data: author } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url")
+    .select("username, display_name, avatar_url, age, sex")
     .eq("id", workout.user_id)
     .single();
 
@@ -100,6 +102,20 @@ export default async function WorkoutDetailPage({
   const prEvents = computePREvents((allWorkouts ?? []) as unknown as WorkoutLite[]).filter(
     (e) => e.workoutId === id
   );
+
+  const canRank = Boolean(bodyweightKg && author?.age && author?.sex);
+  let rankUpEvents: ReturnType<typeof computeRankUpEvents> = [];
+  if (canRank) {
+    const { data: allExercises } = await supabase.from("exercises").select("id, name");
+    const exerciseNames = Object.fromEntries((allExercises ?? []).map((e) => [e.id, e.name]));
+    rankUpEvents = computeRankUpEvents({
+      workouts: (allWorkouts ?? []) as unknown as WorkoutLite[],
+      exerciseNames,
+      bodyweightKg: bodyweightKg!,
+      age: author!.age!,
+      sex: author!.sex as Sex,
+    }).filter((e) => e.workoutId === id);
+  }
 
   const { count: likeCount } = await supabase
     .from("workout_likes")
@@ -213,6 +229,29 @@ export default async function WorkoutDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {rankUpEvents.length > 0 && (
+        <>
+          <RankUpRecap
+            events={rankUpEvents.map((e) => ({ exerciseName: e.label, rank: e.rank }))}
+          />
+          <div className="flex flex-wrap gap-2">
+            {rankUpEvents.map((e) => (
+              <span
+                key={e.exerciseId}
+                className="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                style={{
+                  borderColor: `${e.rank.color}88`,
+                  backgroundColor: `${e.rank.color}22`,
+                  color: e.rank.color,
+                }}
+              >
+                {e.label} ranked up to {e.rank.label}
+              </span>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="flex flex-col gap-4">

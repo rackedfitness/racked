@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import WorkoutBuilder from "@/components/WorkoutBuilder";
 import { computeBestEverMap, computeLastWeightMap, type WorkoutLite } from "@/lib/stats";
+import type { Sex } from "@/lib/rankSystem";
 
 export default async function NewWorkoutPage({
   searchParams,
@@ -39,6 +40,12 @@ export default async function NewWorkoutPage({
     .maybeSingle();
 
   const bodyweightKg = latestMeasurement?.weight_kg ?? null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("age, sex")
+    .eq("id", user!.id)
+    .single();
 
   let initialExercises: {
     exerciseId: string;
@@ -90,6 +97,8 @@ export default async function NewWorkoutPage({
       bestEver={bestEver}
       lastKnownWeight={lastKnownWeight}
       bodyweightKg={bodyweightKg}
+      age={profile?.age ?? null}
+      sex={(profile?.sex as Sex | null) ?? null}
       userId={user!.id}
     />
   );
