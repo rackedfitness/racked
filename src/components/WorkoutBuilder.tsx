@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
 import { estimateOneRepMax, formatDuration } from "@/lib/stats";
@@ -514,6 +514,9 @@ export default function WorkoutBuilder({
             .map((e) => ({ templateExerciseId: e.templateExerciseId as string, newExerciseId: e.exerciseId })),
         });
       } catch (err) {
+        // saveWorkout/saveTemplate redirect() on success, which works by
+        // throwing — must let that through, not treat it as a real failure
+        unstable_rethrow(err);
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });
@@ -544,6 +547,9 @@ export default function WorkoutBuilder({
       try {
         await saveTemplate({ name: title, exercises: payload });
       } catch (err) {
+        // saveWorkout/saveTemplate redirect() on success, which works by
+        // throwing — must let that through, not treat it as a real failure
+        unstable_rethrow(err);
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });

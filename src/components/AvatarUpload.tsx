@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { updateAvatar } from "@/app/settings/actions";
 import Avatar from "@/components/Avatar";
@@ -76,6 +77,9 @@ export default function AvatarUpload({
       await updateAvatar(url);
       setPreview(url);
     } catch (err) {
+      // updateAvatar redirects to /login if the session is missing — let
+      // that through instead of showing it as a save failure
+      unstable_rethrow(err);
       setError(err instanceof Error ? err.message : "Failed to save photo");
     }
     setUploading(false);
