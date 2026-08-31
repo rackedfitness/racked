@@ -13,7 +13,7 @@ export default async function FeedPage() {
   const { data: workouts, error: workoutsError } = await supabase
     .from("workouts")
     .select(
-      "id, title, notes, photo_url, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count)"
+      "id, title, notes, photo_url, started_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
     )
     .not("finished_at", "is", null)
     .eq("is_public", true)
