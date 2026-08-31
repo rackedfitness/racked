@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "@/components/BottomNav";
+import ActiveWorkoutBar from "@/components/ActiveWorkoutBar";
 
 export default async function NavBar() {
   const supabase = await createClient();
@@ -15,5 +16,10 @@ export default async function NavBar() {
     .eq("id", user.id)
     .single();
 
-  return <BottomNav username={profile?.username ?? null} />;
+  return (
+    <>
+      <ActiveWorkoutBar userId={user.id} />
+      <BottomNav username={profile?.username ?? null} />
+    </>
+  );
 }

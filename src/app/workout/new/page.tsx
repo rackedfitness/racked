@@ -5,9 +5,9 @@ import { computeBestEverMap, computeLastWeightMap, type WorkoutLite } from "@/li
 export default async function NewWorkoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ template?: string; savePlan?: string }>;
+  searchParams: Promise<{ template?: string; savePlan?: string; resume?: string }>;
 }) {
-  const { template: templateId, savePlan } = await searchParams;
+  const { template: templateId, savePlan, resume } = await searchParams;
   const supabase = await createClient();
 
   const { data: exercises } = await supabase.from("exercises").select("*").order("name");
@@ -86,6 +86,7 @@ export default async function NewWorkoutPage({
       initialTitle={initialTitle}
       initialExercises={initialExercises}
       savePlanMode={savePlan === "1"}
+      resumeMode={resume === "1"}
       bestEver={bestEver}
       lastKnownWeight={lastKnownWeight}
       bodyweightKg={bodyweightKg}

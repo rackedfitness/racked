@@ -13,6 +13,7 @@ import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
 import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon } from "@/components/UIIcons";
+import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -38,6 +39,22 @@ type InitialExercise = {
   targetReps: number | null;
   templateExerciseId?: string;
 };
+
+type WorkoutDraft = { title: string; startedAt: string; selected: BuilderExercise[] };
+
+// Persists the in-progress workout across navigation (e.g. swiping back)
+// instead of losing it — ActiveWorkoutBar reads the same key to show a
+// resumable mini-bar elsewhere in the app. Plans (savePlanMode) never use
+// this; only real workout-logging sessions do.
+function loadDraft(userId: string | undefined): WorkoutDraft | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(draftKeyFor(userId));
+    return raw ? (JSON.parse(raw) as WorkoutDraft) : null;
+  } catch {
+    return null;
+  }
+}
 
 // A simple medal glyph (ribbon flags + disc) for PR-celebration confetti.
 // canvas-confetti's shapeFromPath needs a browser Path2D, so it's built lazily
@@ -97,6 +114,7 @@ export default function WorkoutBuilder({
   initialTitle = "Workout",
   initialExercises = [],
   savePlanMode = false,
+  resumeMode = false,
   bestEver = {},
   lastKnownWeight = {},
   bodyweightKg = null,
@@ -106,14 +124,16 @@ export default function WorkoutBuilder({
   initialTitle?: string;
   initialExercises?: InitialExercise[];
   savePlanMode?: boolean;
+  resumeMode?: boolean;
   bestEver?: Record<string, number>;
   lastKnownWeight?: Record<string, number>;
   bodyweightKg?: number | null;
   userId?: string;
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState(initialTitle);
-  const [startedAt] = useState(() => new Date().toISOString());
+  const resumedDraft = resumeMode && !savePlanMode ? loadDraft(userId) : null;
+  const [title, setTitle] = useState(resumedDraft?.title ?? initialTitle);
+  const [startedAt] = useState(() => resumedDraft?.startedAt ?? new Date().toISOString());
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [notes, setNotes] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -121,22 +141,24 @@ export default function WorkoutBuilder({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [selected, setSelected] = useState<BuilderExercise[]>(() =>
-    initialExercises.map((ie) => ({
-      exerciseId: ie.exerciseId,
-      name: ie.name,
-      equipment: ie.equipment,
-      category: ie.category,
-      templateExerciseId: ie.templateExerciseId,
-      sets: Array.from({ length: ie.targetSets }, () => ({
-        weight: null,
-        reps: ie.targetReps,
-        distanceKm: null,
-        durationSeconds: null,
-        isWarmup: false,
-        completed: false,
-      })),
-    }))
+  const [selected, setSelected] = useState<BuilderExercise[]>(
+    () =>
+      resumedDraft?.selected ??
+      initialExercises.map((ie) => ({
+        exerciseId: ie.exerciseId,
+        name: ie.name,
+        equipment: ie.equipment,
+        category: ie.category,
+        templateExerciseId: ie.templateExerciseId,
+        sets: Array.from({ length: ie.targetSets }, () => ({
+          weight: null,
+          reps: ie.targetReps,
+          distanceKm: null,
+          durationSeconds: null,
+          isWarmup: false,
+          completed: false,
+        })),
+      }))
   );
   const [swapForExerciseId, setSwapForExerciseId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -164,6 +186,25 @@ export default function WorkoutBuilder({
   }, [savePlanMode]);
 
   const elapsedSeconds = Math.max(0, Math.floor((nowTs - new Date(startedAt).getTime()) / 1000));
+
+  // Keeps the draft in localStorage in sync so ActiveWorkoutBar (and a
+  // resumed session) always reflect the latest state — this is what makes
+  // swiping away mid-workout non-destructive instead of losing everything.
+  useEffect(() => {
+    if (savePlanMode || !userId) return;
+    try {
+      if (selected.length === 0) {
+        localStorage.removeItem(draftKeyFor(userId));
+      } else {
+        const draft: WorkoutDraft = { title, startedAt, selected };
+        localStorage.setItem(draftKeyFor(userId), JSON.stringify(draft));
+      }
+      window.dispatchEvent(new Event(DRAFT_UPDATED_EVENT));
+    } catch {
+      // localStorage can throw (private browsing, quota) — losing the
+      // resume-bar in that case is fine, the session itself still works
+    }
+  }, [savePlanMode, userId, title, startedAt, selected]);
 
   function addExercise(exercise: Exercise) {
     setSelected((prev) => [
@@ -440,6 +481,16 @@ export default function WorkoutBuilder({
             weight: effectiveSetWeight(e.equipment, s.weight, bodyweightKg),
           })),
         }));
+
+        if (userId) {
+          try {
+            localStorage.removeItem(draftKeyFor(userId));
+            window.dispatchEvent(new Event(DRAFT_UPDATED_EVENT));
+          } catch {
+            // non-fatal — worst case the resume bar lingers until overwritten
+          }
+        }
+
         await saveWorkout({
           title,
           notes: notes.trim() || null,
