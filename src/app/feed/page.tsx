@@ -10,7 +10,7 @@ export default async function FeedPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: workouts } = await supabase
+  const { data: workouts, error: workoutsError } = await supabase
     .from("workouts")
     .select(
       "id, title, notes, photo_url, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count)"
@@ -19,6 +19,10 @@ export default async function FeedPage() {
     .eq("is_public", true)
     .order("started_at", { ascending: false })
     .limit(30);
+
+  if (workoutsError) {
+    console.error("Feed query failed:", workoutsError);
+  }
 
   // Fetched as separate queries rather than embedded (count) joins on the
   // main select — a workout with zero likes/comments could otherwise be
@@ -56,14 +60,20 @@ export default async function FeedPage() {
         </Link>
       </div>
 
-      {(!workouts || workouts.length === 0) && (
-        <div className="rounded-lg border border-dashed border-card-border p-6 text-center text-sm text-muted">
-          No workouts yet. Log one, or{" "}
-          <Link href="/people" className="underline">
-            find friends to follow
-          </Link>
-          .
+      {workoutsError ? (
+        <div className="rounded-lg border border-red-400/40 bg-red-400/10 p-6 text-center text-sm text-red-400">
+          Couldn&rsquo;t load the feed: {workoutsError.message}
         </div>
+      ) : (
+        (!workouts || workouts.length === 0) && (
+          <div className="rounded-lg border border-dashed border-card-border p-6 text-center text-sm text-muted">
+            No workouts yet. Log one, or{" "}
+            <Link href="/people" className="underline">
+              find friends to follow
+            </Link>
+            .
+          </div>
+        )
       )}
 
       <div className="flex flex-col gap-5">
