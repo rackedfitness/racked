@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import { toggleLike } from "@/app/social/actions";
 import { HeartIcon, CommentIcon } from "@/components/UIIcons";
+import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 
 export default async function FeedPage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function FeedPage() {
   const { data: workouts, error: workoutsError } = await supabase
     .from("workouts")
     .select(
-      "id, title, notes, photo_url, started_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+      "id, title, notes, photo_url, started_at, finished_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
     )
     .not("finished_at", "is", null)
     .eq("is_public", true)
@@ -23,6 +24,26 @@ export default async function FeedPage() {
   if (workoutsError) {
     console.error("Feed query failed:", workoutsError);
   }
+
+  // PR counts need each author's full workout history (to know what was
+  // already a best before this one), so fetch per unique author rather than
+  // per workout — a handful of extra queries instead of one per card.
+  const authorIds = [...new Set((workouts ?? []).map((w) => w.user_id))];
+  const prCountByWorkout = new Map<string, number>();
+  await Promise.all(
+    authorIds.map(async (authorId) => {
+      const { data: authorWorkouts } = await supabase
+        .from("workouts")
+        .select(
+          "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
+        )
+        .eq("user_id", authorId)
+        .not("finished_at", "is", null)
+        .order("started_at");
+      const withPRs = attachPRCounts((authorWorkouts ?? []) as unknown as WorkoutLite[]);
+      for (const w of withPRs) prCountByWorkout.set(w.id, w.prCount);
+    })
+  );
 
   // Fetched as separate queries rather than embedded (count) joins on the
   // main select — a workout with zero likes/comments could otherwise be
@@ -85,6 +106,10 @@ export default async function FeedPage() {
           const likeCount = likeCounts.get(w.id) ?? 0;
           const commentCount = commentCounts.get(w.id) ?? 0;
           const iLiked = likedIds.has(w.id);
+          const prCount = prCountByWorkout.get(w.id) ?? 0;
+          const durationSeconds = w.finished_at
+            ? Math.max(0, Math.round((new Date(w.finished_at).getTime() - new Date(w.started_at).getTime()) / 1000))
+            : null;
 
           return (
             <div key={w.id} className="flex flex-col gap-3 rounded-xl border border-card-border bg-card p-5">
@@ -101,7 +126,15 @@ export default async function FeedPage() {
 
                 <div>
                   <h2 className="text-lg font-semibold">{w.title}</h2>
-                  <p className="text-sm text-muted">{exerciseCount} exercises</p>
+                  <div className="tnum flex items-center gap-2 text-sm text-muted">
+                    <span>{exerciseCount} exercises</span>
+                    {durationSeconds !== null && <span>· {formatWorkoutDuration(durationSeconds)}</span>}
+                    {prCount > 0 && (
+                      <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-sans text-accent">
+                        {prCount} PR{prCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {w.photo_url && (

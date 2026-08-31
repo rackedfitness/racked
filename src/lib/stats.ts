@@ -150,6 +150,15 @@ export function formatVolume(volume: number): string {
   return `${Math.round(volume)}kg`;
 }
 
+// Coarser than formatDuration below (minutes only, no seconds) — for
+// summarizing a whole finished workout rather than a live-ticking timer.
+export function formatWorkoutDuration(seconds: number): string {
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
 export function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);

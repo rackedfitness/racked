@@ -4,17 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
 import BackButton from "@/components/BackButton";
-import { computePREvents, formatDuration, formatVolume, type WorkoutLite } from "@/lib/stats";
+import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
 import { toggleLike, addComment, deleteComment } from "@/app/social/actions";
 import { HeartIcon } from "@/components/UIIcons";
-
-function formatWorkoutDuration(seconds: number): string {
-  const totalMinutes = Math.round(seconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
 
 export default async function WorkoutDetailPage({
   params,
