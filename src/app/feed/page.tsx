@@ -13,18 +13,36 @@ export default async function FeedPage() {
   const { data: workouts } = await supabase
     .from("workouts")
     .select(
-      "id, title, notes, photo_url, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count), workout_likes(count), workout_comments(count)"
+      "id, title, notes, photo_url, started_at, user_id, profiles(username, display_name, avatar_url), workout_exercises(count)"
     )
     .not("finished_at", "is", null)
     .eq("is_public", true)
     .order("started_at", { ascending: false })
     .limit(30);
 
+  // Fetched as separate queries rather than embedded (count) joins on the
+  // main select — a workout with zero likes/comments could otherwise be
+  // silently dropped from the results if either embed resolves as an inner
+  // join instead of a left join.
   const workoutIds = (workouts ?? []).map((w) => w.id);
-  const { data: myLikes } = workoutIds.length
-    ? await supabase.from("workout_likes").select("workout_id").eq("user_id", user!.id).in("workout_id", workoutIds)
+
+  const { data: allLikes } = workoutIds.length
+    ? await supabase.from("workout_likes").select("workout_id, user_id").in("workout_id", workoutIds)
     : { data: [] };
-  const likedIds = new Set((myLikes ?? []).map((l) => l.workout_id));
+  const likeCounts = new Map<string, number>();
+  const likedIds = new Set<string>();
+  for (const l of allLikes ?? []) {
+    likeCounts.set(l.workout_id, (likeCounts.get(l.workout_id) ?? 0) + 1);
+    if (l.user_id === user!.id) likedIds.add(l.workout_id);
+  }
+
+  const { data: allComments } = workoutIds.length
+    ? await supabase.from("workout_comments").select("workout_id").in("workout_id", workoutIds)
+    : { data: [] };
+  const commentCounts = new Map<string, number>();
+  for (const c of allComments ?? []) {
+    commentCounts.set(c.workout_id, (commentCounts.get(c.workout_id) ?? 0) + 1);
+  }
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-6">
@@ -54,12 +72,8 @@ export default async function FeedPage() {
           const exerciseCount = Array.isArray(w.workout_exercises)
             ? (w.workout_exercises[0] as { count: number } | undefined)?.count ?? 0
             : 0;
-          const likeCount = Array.isArray(w.workout_likes)
-            ? (w.workout_likes[0] as { count: number } | undefined)?.count ?? 0
-            : 0;
-          const commentCount = Array.isArray(w.workout_comments)
-            ? (w.workout_comments[0] as { count: number } | undefined)?.count ?? 0
-            : 0;
+          const likeCount = likeCounts.get(w.id) ?? 0;
+          const commentCount = commentCounts.get(w.id) ?? 0;
           const iLiked = likedIds.has(w.id);
 
           return (
