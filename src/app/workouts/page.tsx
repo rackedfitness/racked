@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import PlanNameField from "@/components/PlanNameField";
 
 export default async function WorkoutsPage() {
   const supabase = await createClient();
@@ -51,7 +52,7 @@ export default async function WorkoutsPage() {
                     key={t.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-card-border p-3"
                   >
-                    <span className="font-medium">{t.name}</span>
+                    <PlanNameField templateId={t.id} name={t.name} />
                     <Link
                       href={`/workout/new?template=${t.id}`}
                       className="glow-accent-sm shrink-0 rounded-full bg-accent px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-accent-ink active:opacity-80"

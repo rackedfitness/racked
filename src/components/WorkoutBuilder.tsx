@@ -23,6 +23,7 @@ type BuilderExercise = {
   equipment: string | null;
   category: string | null;
   sets: BuilderSet[];
+  notes: string;
   // Present only for exercises that started as a slot in a saved plan —
   // lets a swap during this session offer to update the plan permanently.
   templateExerciseId?: string;
@@ -149,6 +150,7 @@ export default function WorkoutBuilder({
         name: ie.name,
         equipment: ie.equipment,
         category: ie.category,
+        notes: "",
         templateExerciseId: ie.templateExerciseId,
         sets: Array.from({ length: ie.targetSets }, () => ({
           weight: null,
@@ -178,6 +180,7 @@ export default function WorkoutBuilder({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [detailExerciseId, setDetailExerciseId] = useState<string | null>(null);
   const [finishChoiceOpen, setFinishChoiceOpen] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (savePlanMode) return;
@@ -214,9 +217,14 @@ export default function WorkoutBuilder({
         name: exercise.name,
         equipment: exercise.equipment,
         category: exercise.category,
+        notes: "",
         sets: [],
       },
     ]);
+  }
+
+  function updateExerciseNotes(exerciseId: string, notes: string) {
+    setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, notes } : e)));
   }
 
   function confirmSwap(newExercise: Exercise) {
@@ -235,6 +243,7 @@ export default function WorkoutBuilder({
           category: newExercise.category,
           originalExerciseId: e.originalExerciseId ?? e.exerciseId,
           originalName: e.originalName ?? e.name,
+          notes: "",
           sets: e.sets.map(() => ({
             weight: null,
             reps: null,
@@ -476,6 +485,7 @@ export default function WorkoutBuilder({
 
         const payload: ExerciseInput[] = selected.map((e) => ({
           exerciseId: e.exerciseId,
+          notes: e.notes.trim() || null,
           sets: e.sets.map((s) => ({
             ...s,
             weight: effectiveSetWeight(e.equipment, s.weight, bodyweightKg),
@@ -507,6 +517,19 @@ export default function WorkoutBuilder({
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });
+  }
+
+  function handleDiscard() {
+    if (userId) {
+      try {
+        localStorage.removeItem(draftKeyFor(userId));
+        window.dispatchEvent(new Event(DRAFT_UPDATED_EVENT));
+      } catch {
+        // non-fatal
+      }
+    }
+    setDiscardConfirmOpen(false);
+    router.push("/");
   }
 
   function handleSavePlan() {
@@ -553,7 +576,20 @@ export default function WorkoutBuilder({
         </button>
       </div>
 
-      {!savePlanMode && <p className="tnum text-sm text-muted">{formatDuration(elapsedSeconds)}</p>}
+      {!savePlanMode && (
+        <div className="flex items-center justify-between">
+          <p className="tnum text-sm text-muted">{formatDuration(elapsedSeconds)}</p>
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDiscardConfirmOpen(true)}
+              className="text-sm text-muted active:text-red-400"
+            >
+              Discard
+            </button>
+          )}
+        </div>
+      )}
 
       {pickerOpen && (
         <ExercisePicker
@@ -824,6 +860,15 @@ export default function WorkoutBuilder({
             >
               + Add set
             </button>
+
+            <input
+              type="text"
+              value={ex.notes}
+              onChange={(e) => updateExerciseNotes(ex.exerciseId, e.target.value)}
+              placeholder="Add a note for this exercise (optional)"
+              maxLength={280}
+              className="mt-2 w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
+            />
           </div>
         ))}
       </div>
@@ -991,6 +1036,40 @@ export default function WorkoutBuilder({
                 className="mt-1 py-1 text-center text-sm text-muted"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {discardConfirmOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center"
+          onClick={() => setDiscardConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-xl border border-card-border bg-card p-4 sm:rounded-xl"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-center font-semibold">Discard workout?</h2>
+            <p className="mb-4 text-center text-sm text-muted">
+              This can&rsquo;t be undone — all sets you&rsquo;ve logged will be lost.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleDiscard}
+                className="rounded-md bg-red-500 px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-white active:opacity-90"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscardConfirmOpen(false)}
+                className="rounded-md border border-card-border px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground"
+              >
+                Keep going
               </button>
             </div>
           </div>

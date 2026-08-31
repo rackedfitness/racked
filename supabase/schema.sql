@@ -761,6 +761,20 @@ values
 on conflict do nothing;
 
 -- =========================================
+-- seed more machine exercises
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Convergent Chest Press', 'chest', 'machine'),
+  ('Lateral Raise Machine', 'shoulders', 'machine'),
+  ('Shoulder Press Machine', 'shoulders', 'machine'),
+  ('Ab Crunch Machine', 'core', 'machine'),
+  ('Hip Abductor Machine', 'legs', 'machine'),
+  ('Hip Adductor Machine', 'legs', 'machine'),
+  ('Assisted Pull-Up Machine', 'back', 'machine')
+on conflict do nothing;
+
+-- =========================================
 -- storage: profile picture uploads
 -- =========================================
 insert into storage.buckets (id, name, public)

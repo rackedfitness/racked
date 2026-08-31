@@ -15,6 +15,7 @@ export type SetInput = {
 
 export type ExerciseInput = {
   exerciseId: string;
+  notes?: string | null;
   sets: SetInput[];
 };
 
@@ -102,6 +103,7 @@ export async function saveWorkout(input: {
         workout_id: workout.id,
         exercise_id: ex.exerciseId,
         order_index: i,
+        notes: ex.notes || null,
       })
       .select("id")
       .single();
@@ -170,4 +172,24 @@ export async function saveTemplate(input: {
 
   revalidatePath("/workouts");
   redirect("/workouts");
+}
+
+export async function renameTemplate(templateId: string, name: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Plan name can't be empty.");
+
+  const { error } = await supabase
+    .from("workout_templates")
+    .update({ name: trimmed })
+    .eq("id", templateId)
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/workouts");
 }

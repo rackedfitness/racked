@@ -43,7 +43,7 @@ export default async function WorkoutDetailPage({
 
   const { data: workoutExercises } = await supabase
     .from("workout_exercises")
-    .select("id, order_index, exercise_id, exercises(name, category)")
+    .select("id, order_index, exercise_id, notes, exercises(name, category)")
     .eq("workout_id", id)
     .order("order_index");
 
@@ -248,6 +248,9 @@ export default async function WorkoutDetailPage({
                   </div>
                 ))}
               </div>
+              {we.notes && (
+                <p className="mt-2 text-sm italic text-muted">&ldquo;{we.notes}&rdquo;</p>
+              )}
             </div>
           );
         })}
