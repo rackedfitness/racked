@@ -151,6 +151,9 @@ export async function saveWorkout(input: {
   }
 
   revalidatePath("/");
+  revalidatePath("/feed");
+  revalidatePath("/history");
+  revalidatePath("/profile/[username]", "page");
   redirect(`/workout/${workout.id}`);
 }
 
