@@ -27,36 +27,35 @@ export default async function DashboardPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, username, avatar_url")
-    .eq("id", user!.id)
-    .single();
-
-  const { data: rawWorkouts } = await supabase
-    .from("workouts")
-    .select(
-      "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
-    )
-    .eq("user_id", user!.id)
-    .not("finished_at", "is", null)
-    .order("started_at", { ascending: false });
-
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select("id, name")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false })
-    .limit(4);
-
   const bodyMapCutoff = new Date();
   bodyMapCutoff.setDate(bodyMapCutoff.getDate() - 7);
-  const { data: recentWorkouts } = await supabase
-    .from("workouts")
-    .select("id, workout_exercises(exercises(category), workout_sets(is_warmup))")
-    .eq("user_id", user!.id)
-    .not("finished_at", "is", null)
-    .gte("started_at", bodyMapCutoff.toISOString());
+
+  // None of these four depend on each other, only on user.id — one round
+  // trip instead of four sequential ones.
+  const [{ data: profile }, { data: rawWorkouts }, { data: templates }, { data: recentWorkouts }] =
+    await Promise.all([
+      supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user!.id).single(),
+      supabase
+        .from("workouts")
+        .select(
+          "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
+        )
+        .eq("user_id", user!.id)
+        .not("finished_at", "is", null)
+        .order("started_at", { ascending: false }),
+      supabase
+        .from("workout_templates")
+        .select("id, name")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(4),
+      supabase
+        .from("workouts")
+        .select("id, workout_exercises(exercises(category), workout_sets(is_warmup))")
+        .eq("user_id", user!.id)
+        .not("finished_at", "is", null)
+        .gte("started_at", bodyMapCutoff.toISOString()),
+    ]);
 
   const muscleCounts = categorySetCounts(recentWorkouts ?? []);
   const hasRecentMuscleData = Object.keys(muscleCounts).length > 0;

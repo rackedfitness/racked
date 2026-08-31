@@ -7,65 +7,70 @@ import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/s
 
 export default async function FeedPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: workouts, error: workoutsError } = await supabase
-    .from("workouts")
-    .select(
-      "id, title, notes, photo_url, started_at, finished_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
-    )
-    .not("finished_at", "is", null)
-    .eq("is_public", true)
-    .order("started_at", { ascending: false })
-    .limit(30);
+  const [{ data: user }, { data: workouts, error: workoutsError }] = await Promise.all([
+    supabase.auth.getUser().then((r) => ({ data: r.data.user })),
+    supabase
+      .from("workouts")
+      .select(
+        "id, title, notes, photo_url, started_at, finished_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+      )
+      .not("finished_at", "is", null)
+      .eq("is_public", true)
+      .order("started_at", { ascending: false })
+      .limit(30),
+  ]);
 
   if (workoutsError) {
     console.error("Feed query failed:", workoutsError);
   }
 
-  // PR counts need each author's full workout history (to know what was
-  // already a best before this one), so fetch per unique author rather than
-  // per workout — a handful of extra queries instead of one per card.
   const authorIds = [...new Set((workouts ?? []).map((w) => w.user_id))];
-  const prCountByWorkout = new Map<string, number>();
-  await Promise.all(
-    authorIds.map(async (authorId) => {
-      const { data: authorWorkouts } = await supabase
-        .from("workouts")
-        .select(
-          "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
-        )
-        .eq("user_id", authorId)
-        .not("finished_at", "is", null)
-        .order("started_at");
-      const withPRs = attachPRCounts((authorWorkouts ?? []) as unknown as WorkoutLite[]);
-      for (const w of withPRs) prCountByWorkout.set(w.id, w.prCount);
-    })
-  );
-
-  // Fetched as separate queries rather than embedded (count) joins on the
-  // main select — a workout with zero likes/comments could otherwise be
-  // silently dropped from the results if either embed resolves as an inner
-  // join instead of a left join.
   const workoutIds = (workouts ?? []).map((w) => w.id);
 
-  const { data: allLikes } = workoutIds.length
-    ? await supabase.from("workout_likes").select("workout_id, user_id").in("workout_id", workoutIds)
-    : { data: [] };
+  // PR counts, likes, and comments are all independent of each other (once
+  // we know which workouts/authors are on this page), so they run together
+  // instead of one waiting on the previous to finish.
+  const prCountByWorkout = new Map<string, number>();
+  const [, likesResult, commentsResult] = await Promise.all([
+    // PR counts need each author's full workout history (to know what was
+    // already a best before this one), so fetch per unique author rather
+    // than per workout — a handful of extra queries instead of one per card.
+    Promise.all(
+      authorIds.map(async (authorId) => {
+        const { data: authorWorkouts } = await supabase
+          .from("workouts")
+          .select(
+            "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
+          )
+          .eq("user_id", authorId)
+          .not("finished_at", "is", null)
+          .order("started_at");
+        const withPRs = attachPRCounts((authorWorkouts ?? []) as unknown as WorkoutLite[]);
+        for (const w of withPRs) prCountByWorkout.set(w.id, w.prCount);
+      })
+    ),
+    // Fetched as separate queries rather than embedded (count) joins on the
+    // main select — a workout with zero likes/comments could otherwise be
+    // silently dropped from the results if either embed resolves as an inner
+    // join instead of a left join.
+    workoutIds.length
+      ? supabase.from("workout_likes").select("workout_id, user_id").in("workout_id", workoutIds)
+      : Promise.resolve({ data: [] }),
+    workoutIds.length
+      ? supabase.from("workout_comments").select("workout_id").in("workout_id", workoutIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
   const likeCounts = new Map<string, number>();
   const likedIds = new Set<string>();
-  for (const l of allLikes ?? []) {
+  for (const l of likesResult.data ?? []) {
     likeCounts.set(l.workout_id, (likeCounts.get(l.workout_id) ?? 0) + 1);
     if (l.user_id === user!.id) likedIds.add(l.workout_id);
   }
 
-  const { data: allComments } = workoutIds.length
-    ? await supabase.from("workout_comments").select("workout_id").in("workout_id", workoutIds)
-    : { data: [] };
   const commentCounts = new Map<string, number>();
-  for (const c of allComments ?? []) {
+  for (const c of commentsResult.data ?? []) {
     commentCounts.set(c.workout_id, (commentCounts.get(c.workout_id) ?? 0) + 1);
   }
 

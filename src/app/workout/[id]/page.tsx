@@ -18,29 +18,60 @@ export default async function WorkoutDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: workout } = await supabase
-    .from("workouts")
-    .select("id, title, notes, photo_url, started_at, finished_at, user_id")
-    .eq("id", id)
-    .single();
+  // Only two things are hard dependencies of everything else: knowing who's
+  // asking (user) and which workout this is + who owns it (workout). Every
+  // other query below only needs workout.user_id/id/user.id, which are both
+  // known after this pair — so they all fire together instead of one at a
+  // time. This page used to be a ~10-query waterfall; it's 3 round trips now.
+  const [{ data: user }, { data: workout }] = await Promise.all([
+    supabase.auth.getUser().then((r) => ({ data: r.data.user })),
+    supabase
+      .from("workouts")
+      .select("id, title, notes, photo_url, started_at, finished_at, user_id")
+      .eq("id", id)
+      .single(),
+  ]);
 
   if (!workout) notFound();
 
-  const { data: author } = await supabase
-    .from("profiles")
-    .select("username, display_name, avatar_url, age, sex")
-    .eq("id", workout.user_id)
-    .single();
-
-  const { data: workoutExercises } = await supabase
-    .from("workout_exercises")
-    .select("id, order_index, exercise_id, notes, exercises(name, category)")
-    .eq("workout_id", id)
-    .order("order_index");
+  const [
+    { data: author },
+    { data: workoutExercises },
+    { data: latestMeasurement },
+    { data: allWorkouts },
+    { count: likeCount },
+    { data: myLike },
+    { data: comments },
+  ] = await Promise.all([
+    supabase.from("profiles").select("username, display_name, avatar_url, age, sex").eq("id", workout.user_id).single(),
+    supabase
+      .from("workout_exercises")
+      .select("id, order_index, exercise_id, notes, exercises(name, category)")
+      .eq("workout_id", id)
+      .order("order_index"),
+    supabase
+      .from("body_measurements")
+      .select("weight_kg")
+      .eq("user_id", workout.user_id)
+      .not("weight_kg", "is", null)
+      .order("logged_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("workouts")
+      .select("id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))")
+      .eq("user_id", workout.user_id)
+      .not("finished_at", "is", null)
+      .order("started_at"),
+    supabase.from("workout_likes").select("*", { count: "exact", head: true }).eq("workout_id", id),
+    supabase.from("workout_likes").select("workout_id").eq("workout_id", id).eq("user_id", user!.id).maybeSingle(),
+    supabase
+      .from("workout_comments")
+      .select("id, body, created_at, user_id, profiles(username, display_name, avatar_url)")
+      .eq("workout_id", id)
+      .order("created_at", { ascending: true }),
+  ]);
 
   const exerciseIds = (workoutExercises ?? []).map((we) => we.id);
   const { data: sets } = exerciseIds.length
@@ -60,15 +91,6 @@ export default async function WorkoutDetailPage({
     : null;
 
   const volume = (sets ?? []).reduce((total, s) => (s.weight && s.reps ? total + s.weight * s.reps : total), 0);
-
-  const { data: latestMeasurement } = await supabase
-    .from("body_measurements")
-    .select("weight_kg")
-    .eq("user_id", workout.user_id)
-    .not("weight_kg", "is", null)
-    .order("logged_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
   const bodyweightKg = latestMeasurement?.weight_kg ?? null;
 
@@ -92,13 +114,6 @@ export default async function WorkoutDetailPage({
     );
   }, 0);
 
-  const { data: allWorkouts } = await supabase
-    .from("workouts")
-    .select("id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))")
-    .eq("user_id", workout.user_id)
-    .not("finished_at", "is", null)
-    .order("started_at");
-
   const prEvents = computePREvents((allWorkouts ?? []) as unknown as WorkoutLite[]).filter(
     (e) => e.workoutId === id
   );
@@ -116,24 +131,6 @@ export default async function WorkoutDetailPage({
       sex: author!.sex as Sex,
     }).filter((e) => e.workoutId === id);
   }
-
-  const { count: likeCount } = await supabase
-    .from("workout_likes")
-    .select("*", { count: "exact", head: true })
-    .eq("workout_id", id);
-
-  const { data: myLike } = await supabase
-    .from("workout_likes")
-    .select("workout_id")
-    .eq("workout_id", id)
-    .eq("user_id", user!.id)
-    .maybeSingle();
-
-  const { data: comments } = await supabase
-    .from("workout_comments")
-    .select("id, body, created_at, user_id, profiles(username, display_name, avatar_url)")
-    .eq("workout_id", id)
-    .order("created_at", { ascending: true });
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">

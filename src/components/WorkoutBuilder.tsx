@@ -202,20 +202,27 @@ export default function WorkoutBuilder({
   // Keeps the draft in localStorage in sync so ActiveWorkoutBar (and a
   // resumed session) always reflect the latest state — this is what makes
   // swiping away mid-workout non-destructive instead of losing everything.
+  // Debounced: this fires on every keystroke (title, notes, every weight/rep
+  // field), and JSON.stringify-ing the whole exercise list on each one was
+  // real, measurable typing lag — a short pause coalesces a whole burst of
+  // changes into a single write.
   useEffect(() => {
     if (savePlanMode || !userId) return;
-    try {
-      if (selected.length === 0) {
-        localStorage.removeItem(draftKeyFor(userId));
-      } else {
-        const draft: WorkoutDraft = { title, startedAt, selected };
-        localStorage.setItem(draftKeyFor(userId), JSON.stringify(draft));
+    const timer = setTimeout(() => {
+      try {
+        if (selected.length === 0) {
+          localStorage.removeItem(draftKeyFor(userId));
+        } else {
+          const draft: WorkoutDraft = { title, startedAt, selected };
+          localStorage.setItem(draftKeyFor(userId), JSON.stringify(draft));
+        }
+        window.dispatchEvent(new Event(DRAFT_UPDATED_EVENT));
+      } catch {
+        // localStorage can throw (private browsing, quota) — losing the
+        // resume-bar in that case is fine, the session itself still works
       }
-      window.dispatchEvent(new Event(DRAFT_UPDATED_EVENT));
-    } catch {
-      // localStorage can throw (private browsing, quota) — losing the
-      // resume-bar in that case is fine, the session itself still works
-    }
+    }, 400);
+    return () => clearTimeout(timer);
   }, [savePlanMode, userId, title, startedAt, selected]);
 
   function addExercise(exercise: Exercise) {
