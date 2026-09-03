@@ -17,6 +17,8 @@ import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon, 
 import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar";
 import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
 import { computeLiftRank, liftKeyForExerciseName, RANK_TIERS, type RankTier, type Sex } from "@/lib/rankSystem";
+import { estimateCaloriesForCardioSet } from "@/lib/calories";
+import { syncWorkoutToHealth } from "@/lib/healthSync";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -114,6 +116,16 @@ function effectiveSetWeight(
     return bodyweightKg != null ? bodyweightKg + (rawWeight ?? 0) : rawWeight;
   }
   return rawWeight;
+}
+
+// saveWorkout/saveTemplate redirect() on success, which works by throwing —
+// the digest prefix is how Next.js itself distinguishes that from a real
+// error (see unstable_rethrow's docs). Checking it here, before the rethrow,
+// is what lets a health-store sync fire only once the save has genuinely
+// committed server-side, not on a failed attempt.
+function isRedirectError(err: unknown): boolean {
+  const digest = (err as { digest?: unknown })?.digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
 }
 
 export default function WorkoutBuilder({
@@ -572,18 +584,43 @@ export default function WorkoutBuilder({
           }
         }
 
-        await saveWorkout({
-          title,
-          notes: notes.trim() || null,
-          exercises: payload,
-          isPublic,
-          photoUrl,
-          startedAt,
-          alsoSaveAsPlan: saveAsPlan ? { name: planName.trim() || title } : null,
-          planSwaps: planSwaps
-            .filter((e) => confirmedSwapIds.has(e.templateExerciseId as string))
-            .map((e) => ({ templateExerciseId: e.templateExerciseId as string, newExerciseId: e.exerciseId })),
-        });
+        const caloriesBurned = selected.reduce((total, e) => {
+          if (e.category !== "cardio") return total;
+          return (
+            total +
+            e.sets.reduce(
+              (setTotal, s) =>
+                setTotal +
+                estimateCaloriesForCardioSet({
+                  exerciseName: e.name,
+                  distanceKm: s.distanceKm,
+                  durationSeconds: s.durationSeconds,
+                  bodyweightKg,
+                }),
+              0
+            )
+          );
+        }, 0);
+
+        try {
+          await saveWorkout({
+            title,
+            notes: notes.trim() || null,
+            exercises: payload,
+            isPublic,
+            photoUrl,
+            startedAt,
+            alsoSaveAsPlan: saveAsPlan ? { name: planName.trim() || title } : null,
+            planSwaps: planSwaps
+              .filter((e) => confirmedSwapIds.has(e.templateExerciseId as string))
+              .map((e) => ({ templateExerciseId: e.templateExerciseId as string, newExerciseId: e.exerciseId })),
+          });
+        } catch (err) {
+          if (isRedirectError(err)) {
+            await syncWorkoutToHealth({ startedAt, finishedAt: new Date().toISOString(), caloriesBurned });
+          }
+          throw err;
+        }
       } catch (err) {
         // saveWorkout/saveTemplate redirect() on success, which works by
         // throwing — must let that through, not treat it as a real failure
