@@ -122,6 +122,17 @@ export function CommentIcon({ size = 18, className }: IconProps) {
   );
 }
 
+export function TimerIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="9" y1="2" x2="15" y2="2" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <circle cx="12" cy="14" r="8" />
+      <path d="M12 10v4l3 2" />
+    </svg>
+  );
+}
+
 export function FlameIcon({ size = 24, className, color = "#ff8a3d" }: IconProps & { color?: string }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill={color}>

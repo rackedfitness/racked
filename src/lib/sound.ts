@@ -47,3 +47,23 @@ export function playPRSound() {
     osc.stop(start + 0.4);
   });
 }
+
+/** Double beep for "rest timer is done." */
+export function playRestCompleteSound() {
+  const audio = getCtx();
+  if (!audio) return;
+  const now = audio.currentTime;
+  [0, 0.16].forEach((offset) => {
+    const start = now + offset;
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(740, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(start);
+    osc.stop(start + 0.16);
+  });
+}

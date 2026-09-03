@@ -5,14 +5,15 @@ import { useRouter, unstable_rethrow } from "next/navigation";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
 import { estimateOneRepMax, formatDuration } from "@/lib/stats";
-import { playTapSound, playPRSound } from "@/lib/sound";
+import { playTapSound, playPRSound, playRestCompleteSound } from "@/lib/sound";
 import { createClient } from "@/lib/supabase/client";
 import confetti from "canvas-confetti";
 import ExercisePicker from "@/components/ExercisePicker";
 import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
-import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon } from "@/components/UIIcons";
+import RestPickerSheet from "@/components/RestPickerSheet";
+import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon, TimerIcon } from "@/components/UIIcons";
 import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar";
 import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
 import { computeLiftRank, liftKeyForExerciseName, RANK_TIERS, type RankTier, type Sex } from "@/lib/rankSystem";
@@ -26,6 +27,7 @@ type BuilderExercise = {
   category: string | null;
   sets: BuilderSet[];
   notes: string;
+  restSeconds: number;
   // Present only for exercises that started as a slot in a saved plan —
   // lets a swap during this session offer to update the plan permanently.
   templateExerciseId?: string;
@@ -44,6 +46,8 @@ type InitialExercise = {
 };
 
 type WorkoutDraft = { title: string; startedAt: string; selected: BuilderExercise[] };
+
+const DEFAULT_REST_SECONDS = 90;
 
 // Persists the in-progress workout across navigation (e.g. swiping back)
 // instead of losing it — ActiveWorkoutBar reads the same key to show a
@@ -150,13 +154,14 @@ export default function WorkoutBuilder({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selected, setSelected] = useState<BuilderExercise[]>(
     () =>
-      resumedDraft?.selected ??
+      resumedDraft?.selected.map((e) => ({ ...e, restSeconds: e.restSeconds ?? DEFAULT_REST_SECONDS })) ??
       initialExercises.map((ie) => ({
         exerciseId: ie.exerciseId,
         name: ie.name,
         equipment: ie.equipment,
         category: ie.category,
         notes: "",
+        restSeconds: DEFAULT_REST_SECONDS,
         templateExerciseId: ie.templateExerciseId,
         sets: Array.from({ length: ie.targetSets }, () => ({
           weight: null,
@@ -168,6 +173,8 @@ export default function WorkoutBuilder({
         })),
       }))
   );
+  const [restTimer, setRestTimer] = useState<{ exerciseId: string; endsAt: number } | null>(null);
+  const [restPickerForExerciseId, setRestPickerForExerciseId] = useState<string | null>(null);
   const [swapForExerciseId, setSwapForExerciseId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -191,9 +198,22 @@ export default function WorkoutBuilder({
   const [rankThemeByExercise, setRankThemeByExercise] = useState<Record<string, RankTier>>({});
   const canRank = Boolean(bodyweightKg && age && sex);
 
+  const restTimerRef = useRef(restTimer);
+  useEffect(() => {
+    restTimerRef.current = restTimer;
+  }, [restTimer]);
+
   useEffect(() => {
     if (savePlanMode) return;
-    const interval = setInterval(() => setNowTs(Date.now()), 1000);
+    const interval = setInterval(() => {
+      setNowTs(Date.now());
+      const rt = restTimerRef.current;
+      if (rt && Date.now() >= rt.endsAt) {
+        playRestCompleteSound();
+        navigator.vibrate?.([120, 80, 120]);
+        setRestTimer(null);
+      }
+    }, 1000);
     return () => clearInterval(interval);
   }, [savePlanMode]);
 
@@ -234,6 +254,7 @@ export default function WorkoutBuilder({
         equipment: exercise.equipment,
         category: exercise.category,
         notes: "",
+        restSeconds: DEFAULT_REST_SECONDS,
         sets: [],
       },
     ]);
@@ -445,6 +466,12 @@ export default function WorkoutBuilder({
     const { sets: finalSets, bestIndex, bestEst1RM } = recomputeExercisePRs(toggledSets, priorBest, ex.equipment);
 
     setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, sets: finalSets } : e)));
+
+    if (willComplete) {
+      setRestTimer({ exerciseId, endsAt: Date.now() + ex.restSeconds * 1000 });
+    } else if (restTimer?.exerciseId === exerciseId) {
+      setRestTimer(null);
+    }
 
     if (willComplete && bestIndex === idx) {
       playPRSound();
@@ -675,6 +702,23 @@ export default function WorkoutBuilder({
 
       <RankUpOverlay event={rankUpQueue[0] ?? null} onDone={() => setRankUpQueue((q) => q.slice(1))} />
 
+      {restPickerForExerciseId &&
+        (() => {
+          const restEx = selected.find((e) => e.exerciseId === restPickerForExerciseId);
+          if (!restEx) return null;
+          return (
+            <RestPickerSheet
+              initialSeconds={restEx.restSeconds}
+              onConfirm={(secs) =>
+                setSelected((prev) =>
+                  prev.map((e) => (e.exerciseId === restPickerForExerciseId ? { ...e, restSeconds: secs } : e))
+                )
+              }
+              onClose={() => setRestPickerForExerciseId(null)}
+            />
+          );
+        })()}
+
       <div className="flex flex-col gap-6">
         {selected.map((ex) => {
           const rankTheme = rankThemeByExercise[ex.exerciseId];
@@ -762,6 +806,32 @@ export default function WorkoutBuilder({
                 </>
               )}
             </div>
+
+            {!savePlanMode &&
+              (restTimer?.exerciseId === ex.exerciseId ? (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="tnum flex items-center gap-1.5 rounded-full bg-accent/15 px-2.5 py-1 text-sm font-semibold text-accent">
+                    <TimerIcon size={13} />
+                    {formatDuration(Math.max(0, Math.ceil((restTimer.endsAt - nowTs) / 1000)))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRestTimer(null)}
+                    className="text-xs text-muted underline active:text-foreground"
+                  >
+                    Skip
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRestPickerForExerciseId(ex.exerciseId)}
+                  className="mb-2 flex items-center gap-1.5 text-xs text-muted active:text-foreground"
+                >
+                  <TimerIcon size={13} />
+                  Rest {formatDuration(ex.restSeconds)}
+                </button>
+              ))}
 
             {ex.sets.length > 0 && (
               <div className="mb-2 grid grid-cols-[1.25rem_1fr_1fr_2.5rem_2.25rem] items-center gap-2 px-1 text-xs text-muted">
