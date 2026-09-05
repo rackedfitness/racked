@@ -11,11 +11,11 @@ export default function RankBadge({
   showLabel = true,
 }: {
   rank: RankTier;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | number;
   showLabel?: boolean;
 }) {
   const isChampion = rank.key === "champion";
-  const dims = size === "sm" ? 32 : size === "lg" ? 72 : 44;
+  const dims = typeof size === "number" ? size : size === "sm" ? 32 : size === "lg" ? 72 : 44;
   const [customImageFailed, setCustomImageFailed] = useState(false);
 
   const glow = `drop-shadow(0 0 ${isChampion ? 10 : 4}px color-mix(in srgb, ${rank.color} 65%, transparent))`;
@@ -91,7 +91,7 @@ export default function RankBadge({
       )}
       {showLabel && (
         <span
-          className={`text-xs font-bold uppercase tracking-wide ${size === "lg" ? "text-sm" : ""}`}
+          className={`text-xs font-bold uppercase tracking-wide ${dims >= 72 ? "text-sm" : ""}`}
           style={{ color: rank.color }}
         >
           {rank.label}
