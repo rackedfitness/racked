@@ -78,12 +78,17 @@ export default async function FeedPage() {
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Feed</h1>
-        <Link
-          href="/workout/new"
-          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink"
-        >
-          Log workout
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/leaderboard" className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground">
+            🏆 Leaderboard
+          </Link>
+          <Link
+            href="/workout/new"
+            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink"
+          >
+            Log workout
+          </Link>
+        </div>
       </div>
 
       {workoutsError ? (
