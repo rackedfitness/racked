@@ -49,6 +49,25 @@ If `npm run dev` (or `build`) throws `fetch failed` / `UNABLE_TO_VERIFY_LEAF_SIG
 
 ## Not built yet (next steps)
 - Stripe / RevenueCat subscriptions and paywalling premium features
-- Capacitor iOS/Android wrapper
+- Android wrapper (the `@capacitor/android` dependency is present but no `android/` project has been generated yet — run `npx cap add android` when needed)
 - Real account deletion (currently "delete my data" wipes workouts/plans/measurements via the anon key; deleting the actual auth user requires the Supabase service-role key, which shouldn't live in client-reachable code — do this via a Supabase Edge Function or the dashboard)
 - Likes/comments on workouts, rest timers, superset support
+
+## Apple Health sync (iOS)
+Finished workouts already sync to Apple Health in code (`src/lib/healthSync.ts`, wired into `WorkoutBuilder`), and the native iOS wrapper is now scaffolded in `ios/`. It's a **one-way, write-only** sync (Racked → Apple Health): calories and a strength-training workout entry, nothing is read back yet.
+
+Racked's Next.js app uses Server Actions/SSR throughout, so it can't be statically exported — the iOS app instead points its WebView at your **deployed** site (see `capacitor.config.ts`). This means you need a real HTTPS deployment to test against; `localhost`/ngrok won't work for the wrapped app the way it does for browser-based phone testing.
+
+Remaining steps (need a Mac with Xcode 26+; can't be done from this environment):
+1. In `capacitor.config.ts`, replace the two `TODO` placeholders:
+   - `appId` — the reverse-DNS Bundle Identifier you register for this app in the [Apple Developer portal](https://developer.apple.com/account).
+   - `server.url` — your deployed site's URL (Vercel production domain or custom domain).
+2. `npx cap sync ios` to pick up the config changes.
+3. Open `ios/App/App.xcworkspace` in Xcode (not the `.xcodeproj`).
+4. Select the **App** target → **Signing & Capabilities**:
+   - Set your Team (needed for HealthKit even in local/simulator-free testing — HealthKit isn't available in the iOS Simulator, so you'll need a physical device).
+   - Click **+ Capability** → add **HealthKit**. This creates `App.entitlements` and registers the capability with your App ID automatically.
+5. Build & run to your device. The first time a workout is finished, iOS will prompt for Health permission using the strings already set in `Info.plist` (`NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription`).
+6. Verify in the Health app under **Browse → Activity → Workouts** that a "Strength Training" entry appears after finishing a workout in Racked.
+
+After any change to `capacitor.config.ts`, native plugin versions, or `public/` assets, re-run `npx cap sync ios` before rebuilding in Xcode.
