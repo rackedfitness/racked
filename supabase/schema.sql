@@ -775,6 +775,21 @@ values
 on conflict do nothing;
 
 -- =========================================
+-- seed reverse-grip and forearm-focused arm exercises
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Reverse Grip Barbell Curl', 'arms', 'barbell'),
+  ('Reverse Grip Cable Curl', 'arms', 'cable'),
+  ('Reverse Grip Bench Press', 'chest', 'barbell'),
+  ('Reverse Grip Lat Pulldown', 'back', 'machine'),
+  ('Zottman Curl', 'arms', 'dumbbell'),
+  ('Cable Hammer Curl', 'arms', 'cable'),
+  ('Wrist Curl', 'arms', 'barbell'),
+  ('Reverse Wrist Curl', 'arms', 'barbell')
+on conflict do nothing;
+
+-- =========================================
 -- storage: profile picture uploads
 -- =========================================
 insert into storage.buckets (id, name, public)
