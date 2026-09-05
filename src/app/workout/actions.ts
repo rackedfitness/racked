@@ -61,6 +61,7 @@ export async function saveWorkout(input: {
   isPublic?: boolean;
   photoUrl?: string | null;
   startedAt: string;
+  gym?: { name: string; address: string | null; placeId: string | null } | null;
   alsoSaveAsPlan?: { name: string } | null;
   planSwaps?: { templateExerciseId: string; newExerciseId: string }[];
 }) {
@@ -86,6 +87,9 @@ export async function saveWorkout(input: {
       is_public: input.isPublic ?? true,
       started_at: input.startedAt,
       finished_at: new Date().toISOString(),
+      gym_name: input.gym?.name || null,
+      gym_address: input.gym?.address || null,
+      gym_place_id: input.gym?.placeId || null,
     })
     .select("id")
     .single();

@@ -13,7 +13,7 @@ export default async function FeedPage() {
     supabase
       .from("workouts")
       .select(
-        "id, title, notes, photo_url, started_at, finished_at, user_id, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+        "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
       )
       .not("finished_at", "is", null)
       .eq("is_public", true)
@@ -140,6 +140,11 @@ export default async function FeedPage() {
                       </span>
                     )}
                   </div>
+                  {w.gym_name && (
+                    <p className="mt-0.5 truncate text-xs text-muted">
+                      <span aria-hidden>📍</span> {w.gym_name}
+                    </p>
+                  )}
                 </div>
 
                 {w.photo_url && (

@@ -13,6 +13,7 @@ import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
 import BodyMap from "@/components/BodyMap";
 import RestPickerSheet from "@/components/RestPickerSheet";
+import GymPicker, { type SelectedGym } from "@/components/GymPicker";
 import { MenuDotsIcon, CheckIcon, CloseIcon, ArrowLeftIcon, SwapIcon, GripIcon, TimerIcon } from "@/components/UIIcons";
 import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar";
 import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
@@ -159,6 +160,7 @@ export default function WorkoutBuilder({
   const [startedAt] = useState(() => resumedDraft?.startedAt ?? new Date().toISOString());
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [notes, setNotes] = useState("");
+  const [gym, setGym] = useState<SelectedGym | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -610,6 +612,7 @@ export default function WorkoutBuilder({
             isPublic,
             photoUrl,
             startedAt,
+            gym,
             alsoSaveAsPlan: saveAsPlan ? { name: planName.trim() || title } : null,
             planSwaps: planSwaps
               .filter((e) => confirmedSwapIds.has(e.templateExerciseId as string))
@@ -1161,6 +1164,10 @@ export default function WorkoutBuilder({
               maxLength={280}
               className="mb-3 w-full resize-none rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
             />
+
+            <div className="mb-3">
+              <GymPicker value={gym} onChange={setGym} />
+            </div>
 
             <label className="mb-3 flex items-center gap-2 text-sm">
               <input

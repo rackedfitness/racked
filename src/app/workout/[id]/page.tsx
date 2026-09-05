@@ -28,7 +28,7 @@ export default async function WorkoutDetailPage({
     supabase.auth.getUser().then((r) => ({ data: r.data.user })),
     supabase
       .from("workouts")
-      .select("id, title, notes, photo_url, started_at, finished_at, user_id")
+      .select("id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, gym_address")
       .eq("id", id)
       .single(),
   ]);
@@ -152,6 +152,11 @@ export default async function WorkoutDetailPage({
               </Link>
             )}
           </div>
+          {workout.gym_name && (
+            <p className="mt-1 truncate text-xs text-muted">
+              <span aria-hidden>📍</span> {workout.gym_name}
+            </p>
+          )}
         </div>
         <div className="shrink-0 text-right">
           <p className="text-sm text-muted">{dateLabel}</p>
