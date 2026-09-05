@@ -77,22 +77,37 @@ export async function saveWorkout(input: {
     throw new Error("Add at least one set before finishing the workout.");
   }
 
-  const { data: workout, error: workoutError } = await supabase
+  const basePayload = {
+    user_id: user.id,
+    title: input.title || "Workout",
+    notes: input.notes || null,
+    photo_url: input.photoUrl || null,
+    is_public: input.isPublic ?? true,
+    started_at: input.startedAt,
+    finished_at: new Date().toISOString(),
+  };
+
+  let { data: workout, error: workoutError } = await supabase
     .from("workouts")
     .insert({
-      user_id: user.id,
-      title: input.title || "Workout",
-      notes: input.notes || null,
-      photo_url: input.photoUrl || null,
-      is_public: input.isPublic ?? true,
-      started_at: input.startedAt,
-      finished_at: new Date().toISOString(),
+      ...basePayload,
       gym_name: input.gym?.name || null,
       gym_address: input.gym?.address || null,
       gym_place_id: input.gym?.placeId || null,
     })
     .select("id")
     .single();
+
+  // The gym_* columns need a migration that may not have been run yet — an
+  // optional tag shouldn't be able to take down the core save, so drop it
+  // and retry rather than failing the whole workout.
+  if (workoutError && /gym_(name|address|place_id)/.test(workoutError.message)) {
+    ({ data: workout, error: workoutError } = await supabase
+      .from("workouts")
+      .insert(basePayload)
+      .select("id")
+      .single());
+  }
 
   if (workoutError || !workout) {
     throw new Error(workoutError?.message ?? "Failed to create workout");
