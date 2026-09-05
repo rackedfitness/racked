@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
+import ShareRecapButton from "@/components/ShareRecapButton";
 import BackButton from "@/components/BackButton";
 import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
@@ -262,7 +263,9 @@ export default async function WorkoutDetailPage({
           const exerciseInfo = exerciseInfoByWE[we.id];
           return (
             <div key={we.id} className="rounded-lg border border-card-border bg-card p-3">
-              <h3 className="mb-2 font-semibold">{exerciseInfo?.name}</h3>
+              <Link href={`/progress?exercise=${we.exercise_id}`} className="mb-2 block font-semibold underline decoration-accent/40 underline-offset-2">
+                {exerciseInfo?.name}
+              </Link>
               <div className="flex flex-col gap-1">
                 {exerciseSets.map((s) => (
                   <div key={s.id} className="tnum flex gap-4 text-sm text-muted">
@@ -349,7 +352,22 @@ export default async function WorkoutDetailPage({
         </div>
       </div>
 
-      <PostWorkoutButton title={workout.title} summary={summary} />
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <PostWorkoutButton title={workout.title} summary={summary} />
+        </div>
+        <div className="flex-1">
+          <ShareRecapButton
+            title={workout.title}
+            dateLabel={dateLabel}
+            durationSeconds={durationSeconds}
+            volume={volume}
+            prCount={prEvents.length}
+            caloriesBurned={caloriesBurned}
+            gymName={workout.gym_name}
+          />
+        </div>
+      </div>
     </div>
   );
 }
