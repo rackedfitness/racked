@@ -12,8 +12,7 @@ const config: CapacitorConfig = {
   appName: "Racked",
   webDir: "public",
   server: {
-    // TODO: replace with your production URL (Vercel deployment or custom domain).
-    url: "https://your-production-domain.example",
+    url: "https://racked-xyao.vercel.app",
     cleartext: false,
   },
 };
