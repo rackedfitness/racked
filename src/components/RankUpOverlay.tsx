@@ -34,7 +34,7 @@ export default function RankUpOverlay({ event, onDone }: { event: RankUpToast | 
       onClick={onDone}
     >
       <div className="animate-rank-up-pop">
-        <RankBadge rank={event.rank} size={120} />
+        <RankBadge rank={event.rank} size={240} />
       </div>
       <div className="animate-rank-up-text flex flex-col items-center gap-1">
         <p className="text-2xl font-black uppercase tracking-wide" style={{ color: event.rank.color }}>
