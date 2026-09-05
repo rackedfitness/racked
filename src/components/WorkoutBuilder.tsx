@@ -31,6 +31,10 @@ type BuilderExercise = {
   sets: BuilderSet[];
   notes: string;
   restSeconds: number;
+  // When true, this exercise and the next one in the list are done back to
+  // back as a superset — no rest timer fires until the last exercise in the
+  // chain, only when a set is completed in one that ISN'T linked forward.
+  supersetWithNext?: boolean;
   // Present only for exercises that started as a slot in a saved plan —
   // lets a swap during this session offer to update the plan permanently.
   templateExerciseId?: string;
@@ -278,6 +282,12 @@ export default function WorkoutBuilder({
     setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, notes } : e)));
   }
 
+  function toggleSupersetWithNext(exerciseId: string) {
+    setSelected((prev) =>
+      prev.map((e) => (e.exerciseId === exerciseId ? { ...e, supersetWithNext: !e.supersetWithNext } : e))
+    );
+  }
+
   function confirmSwap(newExercise: Exercise) {
     const swappingId = swapForExerciseId;
     setSwapForExerciseId(null);
@@ -482,7 +492,11 @@ export default function WorkoutBuilder({
     setSelected((prev) => prev.map((e) => (e.exerciseId === exerciseId ? { ...e, sets: finalSets } : e)));
 
     if (willComplete) {
-      setRestTimer({ exerciseId, endsAt: Date.now() + ex.restSeconds * 1000 });
+      // Linked-forward exercises are a superset — go straight into the next
+      // exercise instead of resting, and only rest once the chain ends.
+      if (!ex.supersetWithNext) {
+        setRestTimer({ exerciseId, endsAt: Date.now() + ex.restSeconds * 1000 });
+      }
     } else if (restTimer?.exerciseId === exerciseId) {
       setRestTimer(null);
     }
@@ -759,9 +773,11 @@ export default function WorkoutBuilder({
           );
         })()}
 
-      <div className="flex flex-col gap-6">
-        {selected.map((ex) => {
+      <div className="flex flex-col">
+        {selected.map((ex, idx) => {
           const rankTheme = rankThemeByExercise[ex.exerciseId];
+          const linkedFromPrevious = idx > 0 && Boolean(selected[idx - 1].supersetWithNext);
+          const isLast = idx === selected.length - 1;
           return (
           <div
             key={ex.exerciseId}
@@ -778,7 +794,7 @@ export default function WorkoutBuilder({
             }}
             className={`rounded-lg border border-card-border bg-card p-3 ${
               draggingId === ex.exerciseId ? "shadow-xl" : ""
-            }`}
+            } ${isLast ? "" : ex.supersetWithNext ? "mb-2" : "mb-6"}`}
           >
             <div className="relative mb-2 flex items-center gap-1">
               <button
@@ -831,7 +847,19 @@ export default function WorkoutBuilder({
               {openMenuId === ex.exerciseId && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
-                  <div className="absolute right-0 top-9 z-20 min-w-[9rem] overflow-hidden rounded-md border border-card-border bg-card shadow-lg">
+                  <div className="absolute right-0 top-9 z-20 min-w-[11rem] overflow-hidden rounded-md border border-card-border bg-card shadow-lg">
+                    {!isLast && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          toggleSupersetWithNext(ex.exerciseId);
+                        }}
+                        className="block w-full border-b border-card-border px-3 py-2.5 text-left text-sm active:bg-accent/10"
+                      >
+                        {ex.supersetWithNext ? "Unlink from next exercise" : "Link with next exercise"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -846,6 +874,12 @@ export default function WorkoutBuilder({
                 </>
               )}
             </div>
+
+            {(ex.supersetWithNext || linkedFromPrevious) && (
+              <p className="mb-2 flex items-center gap-1 text-xs font-semibold text-accent">
+                🔗 Superset{ex.supersetWithNext ? " — no rest until next exercise" : ""}
+              </p>
+            )}
 
             {!savePlanMode &&
               (restTimer?.exerciseId === ex.exerciseId ? (
@@ -872,6 +906,21 @@ export default function WorkoutBuilder({
                   Rest {formatDuration(ex.restSeconds)}
                 </button>
               ))}
+
+            {!savePlanMode &&
+              ex.sets.length > 0 &&
+              ex.category !== "cardio" &&
+              ex.equipment !== "bodyweight" &&
+              ex.equipment !== "weighted_bodyweight" &&
+              lastKnownWeight[ex.exerciseId] != null && (
+                <button
+                  type="button"
+                  onClick={() => updateSet(ex.exerciseId, 0, { weight: lastKnownWeight[ex.exerciseId] + 2.5 })}
+                  className="mb-2 flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1.5 text-xs text-accent active:bg-accent/20"
+                >
+                  💡 Try {lastKnownWeight[ex.exerciseId] + 2.5}kg (last: {lastKnownWeight[ex.exerciseId]}kg)
+                </button>
+              )}
 
             {ex.sets.length > 0 && (
               <div className="mb-2 grid grid-cols-[1.25rem_1fr_1fr_2.5rem_2.25rem] items-center gap-2 px-1 text-xs text-muted">
