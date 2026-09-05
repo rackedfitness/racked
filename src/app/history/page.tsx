@@ -91,12 +91,20 @@ export default async function HistoryPage({
           </Link>
           <h1 className="text-xl font-bold">History</h1>
         </div>
-        <Link
-          href="/history/body-map"
-          className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground"
-        >
-          Body map
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/history/calendar"
+            className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground"
+          >
+            Calendar
+          </Link>
+          <Link
+            href="/history/body-map"
+            className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground"
+          >
+            Body map
+          </Link>
+        </div>
       </div>
 
       <div className="flex gap-1 rounded-full border border-card-border bg-card p-1">
