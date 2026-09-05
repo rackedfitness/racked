@@ -790,6 +790,29 @@ values
 on conflict do nothing;
 
 -- =========================================
+-- seed calisthenics / skill movements
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Muscle Up', 'back', 'bodyweight'),
+  ('Ring Dip', 'arms', 'bodyweight'),
+  ('Ring Row', 'back', 'bodyweight'),
+  ('Handstand Push Up', 'shoulders', 'bodyweight'),
+  ('Pike Push Up', 'shoulders', 'bodyweight'),
+  ('Wall Handstand Hold', 'shoulders', 'bodyweight'),
+  ('Archer Pull Up', 'back', 'bodyweight'),
+  ('Archer Push Up', 'chest', 'bodyweight'),
+  ('L-Sit', 'core', 'bodyweight'),
+  ('Front Lever', 'back', 'bodyweight'),
+  ('Back Lever', 'back', 'bodyweight'),
+  ('Dragon Flag', 'core', 'bodyweight'),
+  ('Planche Push Up', 'chest', 'bodyweight'),
+  ('Skin the Cat', 'back', 'bodyweight'),
+  ('Weighted Muscle Up', 'back', 'weighted_bodyweight'),
+  ('Weighted Ring Dip', 'arms', 'weighted_bodyweight')
+on conflict do nothing;
+
+-- =========================================
 -- storage: profile picture uploads
 -- =========================================
 insert into storage.buckets (id, name, public)
