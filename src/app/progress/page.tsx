@@ -3,7 +3,12 @@ import { workoutVolume, workoutBestSetPerExercise, type WorkoutLite } from "@/li
 import ProgressCharts from "@/components/ProgressCharts";
 import { logMeasurement } from "@/app/progress/actions";
 
-export default async function ProgressPage() {
+export default async function ProgressPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exercise?: string }>;
+}) {
+  const { exercise: initialExerciseId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -45,12 +50,26 @@ export default async function ProgressPage() {
     }
   }
 
-  const { data: measurements } = await supabase
-    .from("body_measurements")
-    .select("id, weight_kg, note, logged_at")
-    .eq("user_id", user!.id)
-    .order("logged_at", { ascending: false })
-    .limit(10);
+  const [{ data: measurements }, { data: measurementsForChart }] = await Promise.all([
+    supabase
+      .from("body_measurements")
+      .select("id, weight_kg, note, logged_at")
+      .eq("user_id", user!.id)
+      .order("logged_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("body_measurements")
+      .select("weight_kg, logged_at")
+      .eq("user_id", user!.id)
+      .not("weight_kg", "is", null)
+      .order("logged_at", { ascending: true })
+      .limit(60),
+  ]);
+
+  const weightData = (measurementsForChart ?? []).map((m) => ({
+    date: new Date(m.logged_at).toLocaleDateString(undefined, { day: "2-digit", month: "short" }),
+    value: m.weight_kg!,
+  }));
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
@@ -60,6 +79,8 @@ export default async function ProgressPage() {
         volumeData={volumeData}
         exercises={(exercises ?? []).sort((a, b) => a.name.localeCompare(b.name))}
         oneRMByExercise={oneRMByExercise}
+        weightData={weightData}
+        initialExerciseId={initialExerciseId}
       />
 
       <div>

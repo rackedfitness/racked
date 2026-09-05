@@ -18,12 +18,18 @@ export default function ProgressCharts({
   volumeData,
   exercises,
   oneRMByExercise,
+  weightData,
+  initialExerciseId,
 }: {
   volumeData: VolumePoint[];
   exercises: { id: string; name: string }[];
   oneRMByExercise: Record<string, OneRMPoint[]>;
+  weightData: OneRMPoint[];
+  initialExerciseId?: string;
 }) {
-  const [exerciseId, setExerciseId] = useState(exercises[0]?.id ?? "");
+  const [exerciseId, setExerciseId] = useState(
+    (initialExerciseId && oneRMByExercise[initialExerciseId] ? initialExerciseId : exercises[0]?.id) ?? ""
+  );
   const oneRMData = useMemo(() => oneRMByExercise[exerciseId] ?? [], [exerciseId, oneRMByExercise]);
 
   return (
@@ -83,6 +89,27 @@ export default function ProgressCharts({
             <p className="py-10 text-center text-sm text-muted">
               Log sets for this exercise to see estimated 1RM.
             </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-2 font-semibold">Bodyweight</h2>
+        <div className="tnum rounded-lg border border-card-border bg-card p-3">
+          {weightData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={weightData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
+                <XAxis dataKey="date" stroke="var(--muted)" fontSize={11} />
+                <YAxis stroke="var(--muted)" fontSize={11} domain={["dataMin - 2", "dataMax + 2"]} />
+                <Tooltip
+                  contentStyle={{ background: "var(--card)", border: "1px solid var(--card-border)", fontSize: 12 }}
+                />
+                <Line type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: "var(--accent)" }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-10 text-center text-sm text-muted">Log your weight below to see a trend.</p>
           )}
         </div>
       </div>
