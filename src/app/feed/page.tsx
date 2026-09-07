@@ -1,29 +1,54 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
+import PersonRow from "@/components/PersonRow";
 import { toggleLike } from "@/app/social/actions";
 import { HeartIcon, CommentIcon } from "@/components/UIIcons";
 import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 
-export default async function FeedPage() {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: user }, { data: workouts, error: workoutsError }] = await Promise.all([
-    supabase.auth.getUser().then((r) => ({ data: r.data.user })),
-    supabase
-      .from("workouts")
-      .select(
-        "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
-      )
-      .not("finished_at", "is", null)
-      .eq("is_public", true)
-      .order("started_at", { ascending: false })
-      .limit(30),
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [{ data: workouts, error: workoutsError }, searchResult, followingResult] = await Promise.all([
+    q
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("workouts")
+          .select(
+            "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+          )
+          .not("finished_at", "is", null)
+          .eq("is_public", true)
+          .order("started_at", { ascending: false })
+          .limit(30),
+    q
+      ? supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .ilike("username", `%${q}%`)
+          .order("username")
+          .limit(30)
+      : Promise.resolve({ data: null }),
+    q
+      ? supabase.from("follows").select("following_id").eq("follower_id", user!.id)
+      : Promise.resolve({ data: null }),
   ]);
 
   if (workoutsError) {
     console.error("Feed query failed:", workoutsError);
   }
+
+  const searchMatches = (searchResult.data ?? []).filter((p) => p.id !== user!.id);
+  const followingIds = new Set((followingResult.data ?? []).map((f) => f.following_id));
 
   const authorIds = [...new Set((workouts ?? []).map((w) => w.user_id))];
   const workoutIds = (workouts ?? []).map((w) => w.id);
@@ -91,7 +116,33 @@ export default async function FeedPage() {
         </div>
       </div>
 
-      {workoutsError ? (
+      <form className="flex gap-2">
+        <input
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Search by username"
+          className="flex-1 rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
+        />
+        <button type="submit" className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink">
+          Search
+        </button>
+      </form>
+
+      {q ? (
+        <div className="flex flex-col gap-3">
+          <Link href="/feed" className="text-sm text-accent underline">
+            ← Back to feed
+          </Link>
+          <div className="flex flex-col divide-y divide-card-border">
+            {searchMatches.map((p) => (
+              <PersonRow key={p.id} profile={p} isFollowing={followingIds.has(p.id)} isSelf={false} />
+            ))}
+            {searchMatches.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted">No users found.</p>
+            )}
+          </div>
+        </div>
+      ) : workoutsError ? (
         <div className="rounded-lg border border-red-400/40 bg-red-400/10 p-6 text-center text-sm text-red-400">
           Couldn&rsquo;t load the feed: {workoutsError.message}
         </div>
@@ -107,6 +158,7 @@ export default async function FeedPage() {
         )
       )}
 
+      {!q && (
       <div className="flex flex-col gap-5">
         {(workouts ?? []).map((w) => {
           const author = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles;
@@ -183,6 +235,7 @@ export default async function FeedPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
