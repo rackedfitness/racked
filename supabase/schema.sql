@@ -813,6 +813,19 @@ values
 on conflict do nothing;
 
 -- =========================================
+-- seed Smith machine variants
+-- =========================================
+insert into public.exercises (name, category, equipment)
+values
+  ('Smith Machine Shoulder Press', 'shoulders', 'machine'),
+  ('Smith Machine Squat', 'legs', 'machine'),
+  ('Smith Machine Bench Press', 'chest', 'machine'),
+  ('Smith Machine Incline Bench Press', 'chest', 'machine'),
+  ('Smith Machine Row', 'back', 'machine'),
+  ('Smith Machine Lunge', 'legs', 'machine')
+on conflict do nothing;
+
+-- =========================================
 -- storage: profile picture uploads
 -- =========================================
 insert into storage.buckets (id, name, public)
