@@ -11,6 +11,7 @@ import Avatar from "@/components/Avatar";
 import BackButton from "@/components/BackButton";
 import PremiumPromoBanner from "@/components/PremiumPromoBanner";
 import SubmitButton from "@/components/SubmitButton";
+import CopyPlanButton from "@/components/CopyPlanButton";
 import { GearIcon } from "@/components/UIIcons";
 
 export default async function ProfilePage({
@@ -44,6 +45,7 @@ export default async function ProfilePage({
     { count: followingCount },
     subscription,
     cookieStore,
+    { data: publicPlans },
   ] = await Promise.all([
     isSelf
       ? Promise.resolve({ data: null })
@@ -75,6 +77,12 @@ export default async function ProfilePage({
     supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
     isSelf ? getSubscription(profile.id) : Promise.resolve(null),
     isSelf ? cookies() : Promise.resolve(null),
+    supabase
+      .from("workout_templates")
+      .select("id, name")
+      .eq("user_id", profile.id)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false }),
   ]);
 
   const isFollowing = Boolean(existingFollow);
@@ -191,6 +199,23 @@ export default async function ProfilePage({
           <RankSection topRank={topRank} liftRanks={liftRanks} />
         )}
       </div>
+
+      {publicPlans && publicPlans.length > 0 && (
+        <div>
+          <h2 className="mb-2 font-semibold">{isSelf ? "Your public plans" : "Public plans"}</h2>
+          <div className="flex flex-col gap-2">
+            {publicPlans.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-card-border bg-card p-3"
+              >
+                <span className="min-w-0 truncate font-medium">{p.name}</span>
+                {!isSelf && <CopyPlanButton templateId={p.id} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {(workouts ?? []).map((w) => (

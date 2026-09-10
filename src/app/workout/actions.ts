@@ -215,3 +215,53 @@ export async function renameTemplate(templateId: string, name: string) {
 
   revalidatePath("/workouts");
 }
+
+export async function setTemplateVisibility(templateId: string, isPublic: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("workout_templates")
+    .update({ is_public: isPublic })
+    .eq("id", templateId)
+    .eq("user_id", user.id);
+
+  revalidatePath("/workouts");
+}
+
+// Copies someone else's public plan (or your own) into a brand-new template
+// you own — reuses the same insert helper saveTemplate/saveWorkout use, so
+// the copy behaves identically to one built by hand.
+export async function copyTemplate(templateId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [{ data: template }, { data: templateExercises }] = await Promise.all([
+    supabase.from("workout_templates").select("name").eq("id", templateId).single(),
+    supabase
+      .from("workout_template_exercises")
+      .select("exercise_id, target_sets, target_reps")
+      .eq("template_id", templateId)
+      .order("order_index"),
+  ]);
+
+  if (!template) throw new Error("Plan not found.");
+
+  await createTemplateRows(supabase, user.id, {
+    name: template.name,
+    exercises: (templateExercises ?? []).map((te) => ({
+      exerciseId: te.exercise_id,
+      targetSets: te.target_sets,
+      targetReps: te.target_reps,
+    })),
+  });
+
+  revalidatePath("/workouts");
+  redirect("/workouts");
+}

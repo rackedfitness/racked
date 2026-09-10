@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient, getUser } from "@/lib/supabase/server";
 import PlanNameField from "@/components/PlanNameField";
+import PlanVisibilityToggle from "@/components/PlanVisibilityToggle";
 
 export default async function WorkoutsPage() {
   const supabase = await createClient();
@@ -8,7 +9,7 @@ export default async function WorkoutsPage() {
 
   const { data: templates } = await supabase
     .from("workout_templates")
-    .select("id, name")
+    .select("id, name, is_public")
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
@@ -48,15 +49,18 @@ export default async function WorkoutsPage() {
                 {templates.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-card-border p-3"
+                    className="flex flex-col gap-2 rounded-md border border-card-border p-3"
                   >
-                    <PlanNameField templateId={t.id} name={t.name} />
-                    <Link
-                      href={`/workout/new?template=${t.id}`}
-                      className="glow-accent-sm shrink-0 rounded-full bg-accent px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-accent-ink active:opacity-80"
-                    >
-                      ▶ Start
-                    </Link>
+                    <div className="flex items-center justify-between gap-3">
+                      <PlanNameField templateId={t.id} name={t.name} />
+                      <Link
+                        href={`/workout/new?template=${t.id}`}
+                        className="glow-accent-sm shrink-0 rounded-full bg-accent px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-accent-ink active:opacity-80"
+                      >
+                        ▶ Start
+                      </Link>
+                    </div>
+                    <PlanVisibilityToggle templateId={t.id} isPublic={t.is_public} />
                   </div>
                 ))}
               </div>

@@ -520,13 +520,15 @@ create table if not exists public.workout_templates (
   created_at timestamptz not null default now()
 );
 
+alter table public.workout_templates add column if not exists is_public boolean not null default false;
+
 alter table public.workout_templates enable row level security;
 
 drop policy if exists "users can view their own templates" on public.workout_templates;
 create policy "users can view their own templates"
   on public.workout_templates for select
   to authenticated
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() or is_public);
 
 drop policy if exists "users can insert their own templates" on public.workout_templates;
 create policy "users can insert their own templates"
@@ -562,7 +564,10 @@ create policy "template_exercises follow parent template visibility"
   on public.workout_template_exercises for select
   to authenticated
   using (
-    exists (select 1 from public.workout_templates t where t.id = template_id and t.user_id = auth.uid())
+    exists (
+      select 1 from public.workout_templates t
+      where t.id = template_id and (t.user_id = auth.uid() or t.is_public)
+    )
   );
 
 drop policy if exists "users can manage template_exercises on their own templates" on public.workout_template_exercises;
