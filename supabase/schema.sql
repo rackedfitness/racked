@@ -884,3 +884,29 @@ create policy "users can delete their own workout photos"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =========================================
+-- subscriptions (Premium status, owner-only)
+--
+-- Written only by server code holding the service-role key (the Stripe
+-- webhook handler, and later the App Store/Play Store receipt-verification
+-- routes) — those bypass RLS entirely, so no insert/update policy is needed
+-- here, only read access for the owning user to check their own status.
+-- =========================================
+create table if not exists public.subscriptions (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  status text not null default 'none' check (status in ('none', 'trialing', 'active', 'past_due', 'canceled')),
+  platform text not null default 'web' check (platform in ('web', 'ios', 'android')),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  current_period_end timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.subscriptions enable row level security;
+
+drop policy if exists "users can view their own subscription" on public.subscriptions;
+create policy "users can view their own subscription"
+  on public.subscriptions for select
+  to authenticated
+  using (user_id = auth.uid());

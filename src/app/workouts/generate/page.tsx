@@ -1,9 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { getSubscription, isPremiumStatus } from "@/lib/subscription";
 import PlanGeneratorFlow from "@/components/PlanGeneratorFlow";
 
 export default async function GeneratePlanPage() {
   const supabase = await createClient();
-  const { data: exercises } = await supabase.from("exercises").select("*").order("name");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return <PlanGeneratorFlow exercises={exercises ?? []} />;
+  const [{ data: exercises }, subscription] = await Promise.all([
+    supabase.from("exercises").select("*").order("name"),
+    getSubscription(user!.id),
+  ]);
+
+  return <PlanGeneratorFlow exercises={exercises ?? []} isPremium={isPremiumStatus(subscription?.status)} />;
 }

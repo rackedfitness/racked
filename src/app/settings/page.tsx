@@ -40,6 +40,14 @@ export default async function SettingsPage() {
         <h1 className="text-xl font-bold">Settings</h1>
       </div>
 
+      <Link
+        href="/premium"
+        className="glow-accent flex items-center justify-between rounded-lg border border-accent bg-accent/10 p-4"
+      >
+        <span className="font-semibold text-accent">✦ Racked Premium</span>
+        <span className="text-sm text-muted">Manage →</span>
+      </Link>
+
       <AvatarUpload
         userId={user!.id}
         avatarUrl={profile?.avatar_url ?? null}

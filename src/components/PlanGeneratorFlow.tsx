@@ -6,6 +6,7 @@ import type { Exercise } from "@/types/database";
 import { generatePlan, type Goal, type Focus } from "@/lib/planGenerator";
 import WorkoutBuilder from "@/components/WorkoutBuilder";
 import { ArrowLeftIcon } from "@/components/UIIcons";
+import GenerateWorkoutForm from "@/components/GenerateWorkoutForm";
 
 const GOALS: { value: Goal; label: string; blurb: string }[] = [
   { value: "muscle", label: "Build Muscle", blurb: "8-12 reps, more volume, more isolation work" },
@@ -18,7 +19,14 @@ const FOCI: { value: Focus; label: string }[] = [
   { value: "lower", label: "Lower Body" },
 ];
 
-export default function PlanGeneratorFlow({ exercises }: { exercises: Exercise[] }) {
+export default function PlanGeneratorFlow({
+  exercises,
+  isPremium,
+}: {
+  exercises: Exercise[];
+  isPremium: boolean;
+}) {
+  const [mode, setMode] = useState<"quick" | "ai">("quick");
   const [goal, setGoal] = useState<Goal>("muscle");
   const [focus, setFocus] = useState<Focus>("full");
   const [generated, setGenerated] = useState<ReturnType<typeof generatePlan> | null>(null);
@@ -52,50 +60,99 @@ export default function PlanGeneratorFlow({ exercises }: { exercises: Exercise[]
         <h1 className="text-xl font-bold">Generate a plan</h1>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs uppercase tracking-wide text-muted">Goal</p>
-        <div className="flex flex-col gap-2">
-          {GOALS.map((g) => (
-            <button
-              key={g.value}
-              type="button"
-              onClick={() => setGoal(g.value)}
-              className={`rounded-lg border p-3 text-left transition-colors ${
-                goal === g.value ? "border-accent bg-accent/10" : "border-card-border bg-card"
-              }`}
-            >
-              <p className="font-semibold">{g.label}</p>
-              <p className="text-xs text-muted">{g.blurb}</p>
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-1 rounded-full border border-card-border bg-card p-1">
+        <button
+          type="button"
+          onClick={() => setMode("quick")}
+          className={`flex-1 rounded-full py-1.5 text-center text-sm font-medium transition-colors ${
+            mode === "quick" ? "bg-accent text-accent-ink" : "text-muted"
+          }`}
+        >
+          Quick
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("ai")}
+          className={`flex-1 rounded-full py-1.5 text-center text-sm font-medium transition-colors ${
+            mode === "ai" ? "bg-accent text-accent-ink" : "text-muted"
+          }`}
+        >
+          ✦ From my equipment
+        </button>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs uppercase tracking-wide text-muted">Focus</p>
-        <div className="flex gap-2">
-          {FOCI.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFocus(f.value)}
-              className={`flex-1 rounded-lg border p-2.5 text-center text-sm transition-colors ${
-                focus === f.value ? "border-accent bg-accent/10 text-accent" : "border-card-border bg-card text-muted"
-              }`}
+      {mode === "ai" ? (
+        !isPremium ? (
+          <div className="flex flex-col gap-3 rounded-lg border border-accent bg-accent/10 p-4 text-center">
+            <p className="font-semibold text-accent">✦ Premium feature</p>
+            <p className="text-sm text-muted">
+              Upgrade to generate a custom workout from a photo of the equipment you have, or a typed list of
+              machines.
+            </p>
+            <Link
+              href="/premium"
+              className="glow-accent rounded-md bg-accent px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-accent-ink"
             >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+              Start free trial
+            </Link>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted">
+              Add a photo of the gym floor or the machines around you, or just list what&rsquo;s available — a plan
+              gets generated and saved to your plans, ready to start.
+            </p>
+            <GenerateWorkoutForm />
+          </>
+        )
+      ) : (
+        <>
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wide text-muted">Goal</p>
+            <div className="flex flex-col gap-2">
+              {GOALS.map((g) => (
+                <button
+                  key={g.value}
+                  type="button"
+                  onClick={() => setGoal(g.value)}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    goal === g.value ? "border-accent bg-accent/10" : "border-card-border bg-card"
+                  }`}
+                >
+                  <p className="font-semibold">{g.label}</p>
+                  <p className="text-xs text-muted">{g.blurb}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <button
-        type="button"
-        onClick={() => setGenerated(generatePlan(exercises, goal, focus))}
-        className="glow-accent rounded-md bg-accent px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-accent-ink"
-      >
-        Generate workout
-      </button>
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wide text-muted">Focus</p>
+            <div className="flex gap-2">
+              {FOCI.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFocus(f.value)}
+                  className={`flex-1 rounded-lg border p-2.5 text-center text-sm transition-colors ${
+                    focus === f.value ? "border-accent bg-accent/10 text-accent" : "border-card-border bg-card text-muted"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setGenerated(generatePlan(exercises, goal, focus))}
+            className="glow-accent rounded-md bg-accent px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-accent-ink"
+          >
+            Generate workout
+          </button>
+        </>
+      )}
     </div>
   );
 }

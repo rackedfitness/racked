@@ -1,7 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/callback", "/manifest.webmanifest"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/auth/callback",
+  "/manifest.webmanifest",
+  // Called server-to-server by Stripe with no session cookies at all — must
+  // stay reachable without auth, or every payment confirmation silently
+  // gets redirected to /login and Premium never activates.
+  "/api/stripe/webhook",
+];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
