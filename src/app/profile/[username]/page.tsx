@@ -12,6 +12,7 @@ import BackButton from "@/components/BackButton";
 import PremiumPromoBanner from "@/components/PremiumPromoBanner";
 import SubmitButton from "@/components/SubmitButton";
 import CopyPlanButton from "@/components/CopyPlanButton";
+import BlockReportMenu from "@/components/BlockReportMenu";
 import { GearIcon } from "@/components/UIIcons";
 
 export default async function ProfilePage({
@@ -47,6 +48,7 @@ export default async function ProfilePage({
     cookieStore,
     { data: publicPlans },
     weightUnit,
+    { data: blockRow },
   ] = await Promise.all([
     isSelf
       ? Promise.resolve({ data: null })
@@ -85,9 +87,19 @@ export default async function ProfilePage({
       .eq("is_public", true)
       .order("created_at", { ascending: false }),
     getWeightUnit(),
+    isSelf
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("blocks")
+          .select("blocker_id")
+          .or(`and(blocker_id.eq.${user?.id ?? ""},blocked_id.eq.${profile.id}),and(blocker_id.eq.${profile.id},blocked_id.eq.${user?.id ?? ""})`)
+          .limit(1)
+          .maybeSingle(),
   ]);
 
   const isFollowing = Boolean(existingFollow);
+  const isBlockedEitherWay = Boolean(blockRow);
+  const viewerBlockedThem = blockRow?.blocker_id === user?.id;
 
   const workouts = (rawWorkouts ?? []) as unknown as WorkoutLite[];
   const totalVolume = workouts.reduce((sum, w) => sum + workoutVolume(w), 0);
@@ -135,20 +147,37 @@ export default async function ProfilePage({
             <GearIcon size={20} />
           </Link>
         ) : (
-          <form action={action}>
-            <SubmitButton
-              className={
-                isFollowing
-                  ? "rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted"
-                  : "glow-accent-sm rounded-full bg-accent px-3 py-1.5 text-sm font-bold text-accent-ink"
-              }
-            >
-              {isFollowing ? "Following" : "Follow"}
-            </SubmitButton>
-          </form>
+          <div className="flex items-center gap-2">
+            {!isBlockedEitherWay && (
+              <form action={action}>
+                <SubmitButton
+                  className={
+                    isFollowing
+                      ? "rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted"
+                      : "glow-accent-sm rounded-full bg-accent px-3 py-1.5 text-sm font-bold text-accent-ink"
+                  }
+                >
+                  {isFollowing ? "Following" : "Follow"}
+                </SubmitButton>
+              </form>
+            )}
+            {(!isBlockedEitherWay || viewerBlockedThem) && (
+              <BlockReportMenu userId={profile.id} isBlocked={viewerBlockedThem} />
+            )}
+          </div>
         )}
       </div>
 
+      {isBlockedEitherWay && (
+        <p className="rounded-lg border border-dashed border-card-border p-4 text-center text-sm text-muted">
+          {viewerBlockedThem
+            ? "You've blocked this user. Unblock them to see their profile again."
+            : "This profile isn't available."}
+        </p>
+      )}
+
+      {!isBlockedEitherWay && (
+      <>
       <div className="tnum flex gap-6 text-sm">
         <Link href={`/profile/${profile.username}/followers`}>
           {followerCount ?? 0} <span className="font-sans font-normal text-muted">followers</span>
@@ -241,6 +270,8 @@ export default async function ProfilePage({
           </p>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

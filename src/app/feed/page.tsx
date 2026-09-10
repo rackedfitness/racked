@@ -5,6 +5,7 @@ import PersonRow from "@/components/PersonRow";
 import SubmitButton from "@/components/SubmitButton";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
+import { getMutualBlockedIds } from "@/app/moderation/actions";
 import { HeartIcon, CommentIcon, BellIcon } from "@/components/UIIcons";
 import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 
@@ -17,7 +18,7 @@ export default async function FeedPage({
   const supabase = await createClient();
   const user = await getUser();
 
-  const [{ data: workouts, error: workoutsError }, searchResult, followingResult, { count: unreadCount }] =
+  const [{ data: rawWorkouts, error: workoutsError }, searchResult, followingResult, { count: unreadCount }, blockedIds] =
     await Promise.all([
     q
       ? Promise.resolve({ data: [], error: null })
@@ -46,11 +47,15 @@ export default async function FeedPage({
       .select("id", { count: "exact", head: true })
       .eq("user_id", user!.id)
       .eq("read", false),
+    getMutualBlockedIds(user!.id),
   ]);
 
   if (workoutsError) {
     console.error("Feed query failed:", workoutsError);
   }
+
+  const blockedSet = new Set(blockedIds);
+  const workouts = (rawWorkouts ?? []).filter((w) => !blockedSet.has(w.user_id));
 
   const searchMatches = (searchResult.data ?? []).filter((p) => p.id !== user!.id);
   const followingIds = new Set((followingResult.data ?? []).map((f) => f.following_id));

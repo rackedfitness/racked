@@ -1035,3 +1035,64 @@ end;
 $$;
 
 grant execute on function public.increment_rate_limit(uuid, text, timestamptz) to authenticated;
+
+-- =========================================
+-- blocks (owner-only — you can only ever see/manage blocks you created;
+-- whether someone has blocked you is never exposed to you directly)
+-- =========================================
+create table if not exists public.blocks (
+  blocker_id uuid not null references public.profiles(id) on delete cascade,
+  blocked_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+
+alter table public.blocks enable row level security;
+
+drop policy if exists "users can view their own blocks" on public.blocks;
+create policy "users can view their own blocks"
+  on public.blocks for select
+  to authenticated
+  using (blocker_id = auth.uid() or blocked_id = auth.uid());
+
+drop policy if exists "users can create blocks as themselves" on public.blocks;
+create policy "users can create blocks as themselves"
+  on public.blocks for insert
+  to authenticated
+  with check (blocker_id = auth.uid());
+
+drop policy if exists "users can remove their own blocks" on public.blocks;
+create policy "users can remove their own blocks"
+  on public.blocks for delete
+  to authenticated
+  using (blocker_id = auth.uid());
+
+-- =========================================
+-- reports (insert-and-forget from the app's side — reviewed directly in
+-- the Supabase dashboard for now, no in-app admin UI)
+-- =========================================
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  reported_user_id uuid references public.profiles(id) on delete cascade,
+  workout_id uuid references public.workouts(id) on delete cascade,
+  comment_id uuid references public.workout_comments(id) on delete cascade,
+  reason text not null,
+  status text not null default 'open' check (status in ('open', 'reviewed', 'dismissed')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.reports enable row level security;
+
+drop policy if exists "users can view their own submitted reports" on public.reports;
+create policy "users can view their own submitted reports"
+  on public.reports for select
+  to authenticated
+  using (reporter_id = auth.uid());
+
+drop policy if exists "users can submit reports as themselves" on public.reports;
+create policy "users can submit reports as themselves"
+  on public.reports for insert
+  to authenticated
+  with check (reporter_id = auth.uid());

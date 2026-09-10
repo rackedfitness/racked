@@ -6,6 +6,7 @@ import PostWorkoutButton from "@/components/PostWorkoutButton";
 import ShareRecapButton from "@/components/ShareRecapButton";
 import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
+import ReportWorkoutButton from "@/components/ReportWorkoutButton";
 import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
 import { formatWeight } from "@/lib/units";
@@ -195,6 +196,7 @@ export default async function WorkoutDetailPage({
         <a href="#comments" className="flex items-center gap-1.5 text-sm text-muted">
           {(comments?.length ?? 0)} comment{(comments?.length ?? 0) === 1 ? "" : "s"}
         </a>
+        {workout.user_id !== user?.id && <ReportWorkoutButton workoutId={id} />}
       </div>
 
       {durationSeconds !== null && (
