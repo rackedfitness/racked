@@ -5,7 +5,7 @@ import PersonRow from "@/components/PersonRow";
 import SubmitButton from "@/components/SubmitButton";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
-import { HeartIcon, CommentIcon } from "@/components/UIIcons";
+import { HeartIcon, CommentIcon, BellIcon } from "@/components/UIIcons";
 import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 
 export default async function FeedPage({
@@ -17,7 +17,8 @@ export default async function FeedPage({
   const supabase = await createClient();
   const user = await getUser();
 
-  const [{ data: workouts, error: workoutsError }, searchResult, followingResult] = await Promise.all([
+  const [{ data: workouts, error: workoutsError }, searchResult, followingResult, { count: unreadCount }] =
+    await Promise.all([
     q
       ? Promise.resolve({ data: [], error: null })
       : supabase
@@ -40,6 +41,11 @@ export default async function FeedPage({
     q
       ? supabase.from("follows").select("following_id").eq("follower_id", user!.id)
       : Promise.resolve({ data: null }),
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user!.id)
+      .eq("read", false),
   ]);
 
   if (workoutsError) {
@@ -103,6 +109,18 @@ export default async function FeedPage({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Feed</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-card-border text-foreground"
+          >
+            <BellIcon size={18} />
+            {(unreadCount ?? 0) > 0 && (
+              <span className="tnum absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">
+                {unreadCount! > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </Link>
           <Link href="/leaderboard" className="rounded-full border border-card-border px-3 py-1.5 text-sm text-foreground">
             🏆 Leaderboard
           </Link>

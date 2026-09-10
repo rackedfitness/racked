@@ -133,6 +133,15 @@ export function TimerIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function BellIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
 export function FlameIcon({ size = 24, className, color = "#ff8a3d" }: IconProps & { color?: string }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill={color}>

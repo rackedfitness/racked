@@ -441,6 +441,44 @@ create policy "users can delete their own comments"
   using (user_id = auth.uid());
 
 -- =========================================
+-- notifications (likes/comments/follows — recipient-only reads)
+-- =========================================
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  actor_id uuid not null references public.profiles(id) on delete cascade,
+  type text not null check (type in ('like', 'comment', 'follow')),
+  workout_id uuid references public.workouts(id) on delete cascade,
+  comment_id uuid references public.workout_comments(id) on delete cascade,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "users can view their own notifications" on public.notifications;
+create policy "users can view their own notifications"
+  on public.notifications for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "users can create notifications as themselves" on public.notifications;
+create policy "users can create notifications as themselves"
+  on public.notifications for insert
+  to authenticated
+  with check (actor_id = auth.uid());
+
+drop policy if exists "users can mark their own notifications read" on public.notifications;
+create policy "users can mark their own notifications read"
+  on public.notifications for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create index if not exists notifications_user_id_created_at_idx
+  on public.notifications (user_id, created_at desc);
+
+-- =========================================
 -- workout_templates (reusable workout plans, owner-only)
 -- =========================================
 create table if not exists public.workout_templates (
