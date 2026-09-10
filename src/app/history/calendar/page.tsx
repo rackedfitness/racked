@@ -30,13 +30,23 @@ export default async function TrainingCalendarPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - (WEEKS_TO_SHOW * 7 - 1));
+  start.setDate(start.getDate() - start.getDay()); // align to the preceding Sunday
+
+  // Bounded to the visible window — without this, the query pulls a
+  // workout's entire history (with nested set joins) just to shade a
+  // 26-week grid, and only gets more wasteful the longer the account exists.
   const { data: rawWorkouts } = await supabase
     .from("workouts")
     .select(
       "id, started_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
     )
     .eq("user_id", user!.id)
-    .not("finished_at", "is", null);
+    .not("finished_at", "is", null)
+    .gte("started_at", start.toISOString());
 
   const workouts = (rawWorkouts ?? []) as unknown as WorkoutLite[];
 
@@ -45,12 +55,6 @@ export default async function TrainingCalendarPage() {
     const key = new Date(w.started_at).toDateString();
     volumeByDate.set(key, (volumeByDate.get(key) ?? 0) + workoutVolume(w));
   }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(today);
-  start.setDate(start.getDate() - (WEEKS_TO_SHOW * 7 - 1));
-  start.setDate(start.getDate() - start.getDay()); // align to the preceding Sunday
 
   const days: { date: Date; volume: number }[] = [];
   for (const cursor = new Date(start); cursor <= today; cursor.setDate(cursor.getDate() + 1)) {

@@ -34,41 +34,57 @@ export default async function ProfilePage({
 
   const isSelf = user?.id === profile.id;
 
-  const { data: existingFollow } = isSelf
-    ? { data: null }
-    : await supabase
-        .from("follows")
-        .select("follower_id")
-        .eq("follower_id", user?.id ?? "")
-        .eq("following_id", profile.id)
-        .maybeSingle();
+  // None of these six depend on each other, only on profile.id/user.id —
+  // one round trip instead of six sequential ones. This page is a hop from
+  // nearly every avatar/name link in the app, so it's worth keeping fast.
+  const [
+    { data: existingFollow },
+    { data: rawWorkouts },
+    { data: latestMeasurement },
+    { data: exercises },
+    { count: followerCount },
+    { count: followingCount },
+    subscription,
+    cookieStore,
+  ] = await Promise.all([
+    isSelf
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("follows")
+          .select("follower_id")
+          .eq("follower_id", user?.id ?? "")
+          .eq("following_id", profile.id)
+          .maybeSingle(),
+    supabase
+      .from("workouts")
+      .select(
+        "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
+      )
+      .eq("user_id", profile.id)
+      .not("finished_at", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("body_measurements")
+      .select("weight_kg")
+      .eq("user_id", profile.id)
+      .not("weight_kg", "is", null)
+      .order("logged_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("exercises").select("id, name"),
+    supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
+    supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
+    isSelf ? getSubscription(profile.id) : Promise.resolve(null),
+    isSelf ? cookies() : Promise.resolve(null),
+  ]);
 
   const isFollowing = Boolean(existingFollow);
-
-  const { data: rawWorkouts } = await supabase
-    .from("workouts")
-    .select(
-      "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
-    )
-    .eq("user_id", profile.id)
-    .not("finished_at", "is", null)
-    .order("started_at", { ascending: false })
-    .limit(30);
 
   const workouts = (rawWorkouts ?? []) as unknown as WorkoutLite[];
   const totalVolume = workouts.reduce((sum, w) => sum + workoutVolume(w), 0);
   const streak = computeStreakDays(workouts);
 
-  const { data: latestMeasurement } = await supabase
-    .from("body_measurements")
-    .select("weight_kg")
-    .eq("user_id", profile.id)
-    .not("weight_kg", "is", null)
-    .order("logged_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: exercises } = await supabase.from("exercises").select("id, name");
   const exerciseNames = Object.fromEntries((exercises ?? []).map((e) => [e.id, e.name]));
 
   const bodyweightKg = latestMeasurement?.weight_kg ?? null;
@@ -85,25 +101,10 @@ export default async function ProfilePage({
     : [];
   const topRank = bestOverallRank(liftRanks);
 
-  const { count: followerCount } = await supabase
-    .from("follows")
-    .select("follower_id", { count: "exact", head: true })
-    .eq("following_id", profile.id);
-
-  const { count: followingCount } = await supabase
-    .from("follows")
-    .select("following_id", { count: "exact", head: true })
-    .eq("follower_id", profile.id);
-
   const action = isFollowing ? unfollow.bind(null, profile.id) : follow.bind(null, profile.id);
 
-  let showPremiumPromo = false;
-  let promoDismissed = false;
-  if (isSelf) {
-    const [subscription, cookieStore] = await Promise.all([getSubscription(profile.id), cookies()]);
-    showPremiumPromo = !isPremiumStatus(subscription?.status);
-    promoDismissed = cookieStore.get("racked_premium_promo_dismissed")?.value === "1";
-  }
+  const showPremiumPromo = isSelf && !isPremiumStatus(subscription?.status);
+  const promoDismissed = cookieStore?.get("racked_premium_promo_dismissed")?.value === "1";
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">

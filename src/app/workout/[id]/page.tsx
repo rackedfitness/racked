@@ -24,7 +24,8 @@ export default async function WorkoutDetailPage({
   // asking (user) and which workout this is + who owns it (workout). Every
   // other query below only needs workout.user_id/id/user.id, which are both
   // known after this pair — so they all fire together instead of one at a
-  // time. This page used to be a ~10-query waterfall; it's 3 round trips now.
+  // time. This page used to be a ~10-query waterfall; it's 3 round trips now
+  // (a 4th, sets, has its own hard dependency on workoutExercises below).
   const [{ data: user }, { data: workout }] = await Promise.all([
     supabase.auth.getUser().then((r) => ({ data: r.data.user })),
     supabase
@@ -75,13 +76,22 @@ export default async function WorkoutDetailPage({
   ]);
 
   const exerciseIds = (workoutExercises ?? []).map((we) => we.id);
-  const { data: sets } = exerciseIds.length
-    ? await supabase
-        .from("workout_sets")
-        .select("id, workout_exercise_id, set_index, weight, reps, distance_km, duration_seconds, is_warmup")
-        .in("workout_exercise_id", exerciseIds)
-        .order("set_index")
-    : { data: [] };
+  const bodyweightKg = latestMeasurement?.weight_kg ?? null;
+  const canRank = Boolean(bodyweightKg && author?.age && author?.sex);
+
+  // sets depends on workoutExercises (just fetched above); allExercises only
+  // depends on canRank, which is already known — no reason to make it wait
+  // behind the sets query too.
+  const [{ data: sets }, { data: allExercises }] = await Promise.all([
+    exerciseIds.length
+      ? supabase
+          .from("workout_sets")
+          .select("id, workout_exercise_id, set_index, weight, reps, distance_km, duration_seconds, is_warmup")
+          .in("workout_exercise_id", exerciseIds)
+          .order("set_index")
+      : Promise.resolve({ data: [] }),
+    canRank ? supabase.from("exercises").select("id, name") : Promise.resolve({ data: null }),
+  ]);
 
   const dateLabel = new Date(workout.started_at).toLocaleDateString();
   const exerciseCount = workoutExercises?.length ?? 0;
@@ -92,8 +102,6 @@ export default async function WorkoutDetailPage({
     : null;
 
   const volume = (sets ?? []).reduce((total, s) => (s.weight && s.reps ? total + s.weight * s.reps : total), 0);
-
-  const bodyweightKg = latestMeasurement?.weight_kg ?? null;
 
   const exerciseInfoByWE: Record<string, { name: string; category: string | null }> = {};
   for (const we of workoutExercises ?? []) {
@@ -119,10 +127,8 @@ export default async function WorkoutDetailPage({
     (e) => e.workoutId === id
   );
 
-  const canRank = Boolean(bodyweightKg && author?.age && author?.sex);
   let rankUpEvents: ReturnType<typeof computeRankUpEvents> = [];
   if (canRank) {
-    const { data: allExercises } = await supabase.from("exercises").select("id, name");
     const exerciseNames = Object.fromEntries((allExercises ?? []).map((e) => [e.id, e.name]));
     rankUpEvents = computeRankUpEvents({
       workouts: (allWorkouts ?? []) as unknown as WorkoutLite[],

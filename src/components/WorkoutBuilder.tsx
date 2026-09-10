@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, unstable_rethrow } from "next/navigation";
 import type { Exercise } from "@/types/database";
 import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/app/workout/actions";
@@ -19,7 +19,6 @@ import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar"
 import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
 import { computeLiftRank, liftKeyForExerciseName, RANK_TIERS, type RankTier, type Sex } from "@/lib/rankSystem";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
-import { syncWorkoutToHealth } from "@/lib/healthSync";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -391,17 +390,26 @@ export default function WorkoutBuilder({
     setDragOffsetY(0);
   }
 
-  const sessionCounts: Record<string, number> = {};
-  for (const ex of selected) {
-    if (!ex.category) continue;
-    const workingSets = ex.sets.filter((s) => s.completed && !s.isWarmup).length;
-    if (workingSets > 0) sessionCounts[ex.category] = (sessionCounts[ex.category] ?? 0) + workingSets;
-  }
+  // Both only depend on `selected`, not on the once-a-second `nowTs` tick —
+  // memoized so an active rest timer doesn't force these to recompute 60x
+  // for every 1 real change while resting between sets.
+  const sessionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ex of selected) {
+      if (!ex.category) continue;
+      const workingSets = ex.sets.filter((s) => s.completed && !s.isWarmup).length;
+      if (workingSets > 0) counts[ex.category] = (counts[ex.category] ?? 0) + workingSets;
+    }
+    return counts;
+  }, [selected]);
   const hasSessionActivity = Object.keys(sessionCounts).length > 0;
 
-  const planSwaps = selected.filter(
-    (e) => e.templateExerciseId && e.originalExerciseId && e.originalExerciseId !== e.exerciseId
+  const planSwaps = useMemo(
+    () => selected.filter((e) => e.templateExerciseId && e.originalExerciseId && e.originalExerciseId !== e.exerciseId),
+    [selected]
   );
+
+  const excludeIds = useMemo(() => selected.map((s) => s.exerciseId), [selected]);
 
   function removeExercise(exerciseId: string) {
     setSelected((prev) => prev.filter((e) => e.exerciseId !== exerciseId));
@@ -634,6 +642,10 @@ export default function WorkoutBuilder({
           });
         } catch (err) {
           if (isRedirectError(err)) {
+            // Dynamically imported: pulls in the Capacitor health-bridge
+            // packages, which no-op on web anyway — no reason to ship them
+            // in every visitor's bundle for a path only native builds use.
+            const { syncWorkoutToHealth } = await import("@/lib/healthSync");
             await syncWorkoutToHealth({ startedAt, finishedAt: new Date().toISOString(), caloriesBurned });
           }
           throw err;
@@ -725,7 +737,7 @@ export default function WorkoutBuilder({
       {pickerOpen && (
         <ExercisePicker
           exercises={exercises}
-          excludeIds={selected.map((s) => s.exerciseId)}
+          excludeIds={excludeIds}
           onAdd={addExercise}
           onClose={() => setPickerOpen(false)}
         />
@@ -734,7 +746,7 @@ export default function WorkoutBuilder({
       {swapForExerciseId && (
         <ExercisePicker
           exercises={exercises}
-          excludeIds={selected.map((s) => s.exerciseId)}
+          excludeIds={excludeIds}
           onAdd={confirmSwap}
           onClose={() => setSwapForExerciseId(null)}
         />
@@ -1185,6 +1197,7 @@ export default function WorkoutBuilder({
                 <button
                   type="button"
                   onClick={() => {
+                    if (photoPreview) URL.revokeObjectURL(photoPreview);
                     setPhotoFile(null);
                     setPhotoPreview(null);
                   }}
