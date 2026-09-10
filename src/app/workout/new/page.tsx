@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import WorkoutBuilder from "@/components/WorkoutBuilder";
 import { computeBestEverMap, computeLastWeightMap, type WorkoutLite } from "@/lib/stats";
 import type { Sex } from "@/lib/rankSystem";
+import type { WeightUnit } from "@/lib/units";
 
 export default async function NewWorkoutPage({
   searchParams,
@@ -36,7 +37,7 @@ export default async function NewWorkoutPage({
       .order("logged_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("profiles").select("age, sex").eq("id", user!.id).single(),
+    supabase.from("profiles").select("age, sex, weight_unit").eq("id", user!.id).single(),
     templateId
       ? Promise.all([
           supabase.from("workout_templates").select("name").eq("id", templateId).single(),
@@ -97,6 +98,7 @@ export default async function NewWorkoutPage({
       bodyweightKg={bodyweightKg}
       age={profile?.age ?? null}
       sex={(profile?.sex as Sex | null) ?? null}
+      weightUnit={(profile?.weight_unit as WeightUnit | null) ?? "kg"}
       userId={user!.id}
     />
   );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import RankBadge from "@/components/RankBadge";
 import { formatTopPercent, type LiftRankResult } from "@/lib/rankSystem";
+import { formatWeight, type WeightUnit } from "@/lib/units";
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -25,9 +26,11 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
 export default function RankSection({
   topRank,
   liftRanks,
+  weightUnit = "kg",
 }: {
   topRank: LiftRankResult;
   liftRanks: LiftRankResult[];
+  weightUnit?: WeightUnit;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -59,7 +62,7 @@ export default function RankSection({
           {liftRanks.map((lr) => (
             <div key={lr.lift} className="rounded-lg border border-card-border bg-card p-3">
               <p className="text-xs text-muted">{lr.label}</p>
-              <p className="tnum text-sm">{Math.round(lr.oneRepMaxKg)}kg e1RM</p>
+              <p className="tnum text-sm">{formatWeight(lr.oneRepMaxKg, weightUnit)} e1RM</p>
               <RankBadge rank={lr.rank} size="sm" />
             </div>
           ))}

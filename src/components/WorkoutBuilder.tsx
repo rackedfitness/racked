@@ -19,6 +19,7 @@ import { draftKeyFor, DRAFT_UPDATED_EVENT } from "@/components/ActiveWorkoutBar"
 import RankUpOverlay, { type RankUpToast } from "@/components/RankUpOverlay";
 import { computeLiftRank, liftKeyForExerciseName, RANK_TIERS, type RankTier, type Sex } from "@/lib/rankSystem";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
+import { toDisplayWeight, toKg, type WeightUnit } from "@/lib/units";
 
 type BuilderSet = SetInput & { isPR?: boolean };
 
@@ -143,6 +144,7 @@ export default function WorkoutBuilder({
   bodyweightKg = null,
   age = null,
   sex = null,
+  weightUnit = "kg",
   userId,
 }: {
   exercises: Exercise[];
@@ -155,6 +157,7 @@ export default function WorkoutBuilder({
   bodyweightKg?: number | null;
   age?: number | null;
   sex?: Sex | null;
+  weightUnit?: WeightUnit;
   userId?: string;
 }) {
   const router = useRouter();
@@ -947,7 +950,9 @@ export default function WorkoutBuilder({
                   onClick={() => updateSet(ex.exerciseId, 0, { weight: lastKnownWeight[ex.exerciseId] + 2.5 })}
                   className="mb-2 flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1.5 text-xs text-accent active:bg-accent/20"
                 >
-                  💡 Try {lastKnownWeight[ex.exerciseId] + 2.5}kg (last: {lastKnownWeight[ex.exerciseId]}kg)
+                  💡 Try {toDisplayWeight(lastKnownWeight[ex.exerciseId] + 2.5, weightUnit)}
+                  {weightUnit} (last: {toDisplayWeight(lastKnownWeight[ex.exerciseId], weightUnit)}
+                  {weightUnit})
                 </button>
               )}
 
@@ -1025,7 +1030,7 @@ export default function WorkoutBuilder({
                     ) : ex.equipment === "bodyweight" ? (
                       <>
                         <span className="tnum flex w-full min-w-0 items-center justify-center rounded-md border border-card-border bg-background px-2 py-2 text-muted">
-                          {bodyweightKg != null ? `${bodyweightKg}kg` : "BW"}
+                          {bodyweightKg != null ? `${toDisplayWeight(bodyweightKg, weightUnit)}${weightUnit}` : "BW"}
                         </span>
                         <input
                           type="number"
@@ -1045,18 +1050,18 @@ export default function WorkoutBuilder({
                         <input
                           type="number"
                           inputMode="decimal"
-                          value={set.weight ?? ""}
+                          value={set.weight != null ? toDisplayWeight(set.weight, weightUnit) : ""}
                           onChange={(e) =>
                             updateSet(ex.exerciseId, idx, {
-                              weight: e.target.value === "" ? null : Number(e.target.value),
+                              weight: e.target.value === "" ? null : toKg(Number(e.target.value), weightUnit),
                             })
                           }
                           placeholder={
                             ex.equipment === "weighted_bodyweight"
-                              ? "+kg"
+                              ? `+${weightUnit}`
                               : suggested != null
-                                ? String(suggested)
-                                : "kg"
+                                ? String(toDisplayWeight(suggested, weightUnit))
+                                : weightUnit
                           }
                           className="tnum w-full min-w-0 rounded-md border border-card-border bg-background px-2 py-2 text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted"
                         />

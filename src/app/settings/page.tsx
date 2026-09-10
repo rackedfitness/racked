@@ -5,7 +5,7 @@ import AccentPicker from "@/components/AccentPicker";
 import PinSettings from "@/components/PinSettings";
 import ExportDataButton from "@/components/ExportDataButton";
 import DeleteDataButton from "@/components/DeleteDataButton";
-import { workoutVolume, type WorkoutLite } from "@/lib/stats";
+import { workoutVolume, formatVolume, type WorkoutLite } from "@/lib/stats";
 import Link from "next/link";
 import { logout } from "@/app/auth/actions";
 import { ArrowLeftIcon } from "@/components/UIIcons";
@@ -18,7 +18,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, username, sex, age, avatar_url")
+    .select("display_name, username, sex, age, avatar_url, weight_unit")
     .eq("id", user!.id)
     .single();
 
@@ -100,6 +100,17 @@ export default async function SettingsPage() {
         <p className="text-xs text-muted">
           Sex and age are used to calculate your strength rank for major lifts.
         </p>
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">Weight unit</span>
+          <select
+            name="weightUnit"
+            defaultValue={profile?.weight_unit ?? "kg"}
+            className="w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="kg">Kilograms (kg)</option>
+            <option value="lbs">Pounds (lbs)</option>
+          </select>
+        </label>
         <button
           type="submit"
           className="self-start rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink"
@@ -136,7 +147,7 @@ export default async function SettingsPage() {
               <p className="text-xs text-muted">Workouts logged</p>
             </div>
             <div>
-              <p className="tnum text-xl">{Math.round(totalVolume)}kg</p>
+              <p className="tnum text-xl">{formatVolume(totalVolume, (profile?.weight_unit as "kg" | "lbs" | undefined) ?? "kg")}</p>
               <p className="text-xs text-muted">Total volume</p>
             </div>
           </div>

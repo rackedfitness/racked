@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, getWeightUnit } from "@/lib/supabase/server";
 import { follow, unfollow } from "@/app/social/actions";
 import { workoutVolume, formatVolume, computeStreakDays, computeBestEverMap, type WorkoutLite } from "@/lib/stats";
 import { computeAllLiftRanks, bestOverallRank, type Sex } from "@/lib/rankSystem";
@@ -46,6 +46,7 @@ export default async function ProfilePage({
     subscription,
     cookieStore,
     { data: publicPlans },
+    weightUnit,
   ] = await Promise.all([
     isSelf
       ? Promise.resolve({ data: null })
@@ -83,6 +84,7 @@ export default async function ProfilePage({
       .eq("user_id", profile.id)
       .eq("is_public", true)
       .order("created_at", { ascending: false }),
+    getWeightUnit(),
   ]);
 
   const isFollowing = Boolean(existingFollow);
@@ -162,7 +164,7 @@ export default async function ProfilePage({
           <p className="text-xs text-muted">Workouts</p>
         </div>
         <div className="rounded-lg border border-card-border bg-card p-3">
-          <p className="tnum text-xl">{formatVolume(totalVolume)}</p>
+          <p className="tnum text-xl">{formatVolume(totalVolume, weightUnit)}</p>
           <p className="text-xs text-muted">Volume</p>
         </div>
         <div className="rounded-lg border border-card-border bg-card p-3">
@@ -196,7 +198,7 @@ export default async function ProfilePage({
             Log a bench press, squat, deadlift, or overhead press to earn your first rank.
           </p>
         ) : (
-          <RankSection topRank={topRank} liftRanks={liftRanks} />
+          <RankSection topRank={topRank} liftRanks={liftRanks} weightUnit={weightUnit} />
         )}
       </div>
 

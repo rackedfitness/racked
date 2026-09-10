@@ -17,6 +17,10 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists sex text check (sex in ('male', 'female'));
 alter table public.profiles add column if not exists age int check (age > 0 and age < 120);
 
+-- display-only preference — every stored/computed weight stays in kg
+-- regardless of this setting
+alter table public.profiles add column if not exists weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lbs'));
+
 alter table public.profiles enable row level security;
 
 drop policy if exists "profiles are viewable by any authenticated user" on public.profiles;

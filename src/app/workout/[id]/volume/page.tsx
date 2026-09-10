@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
 import { formatVolume } from "@/lib/stats";
 import { ArrowLeftIcon } from "@/components/UIIcons";
 
@@ -11,6 +11,7 @@ export default async function WorkoutVolumePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const weightUnit = await getWeightUnit();
 
   const { data: workout } = await supabase
     .from("workouts")
@@ -64,7 +65,7 @@ export default async function WorkoutVolumePage({
             className="flex items-center justify-between rounded-lg border border-card-border bg-card p-3"
           >
             <h3 className="font-semibold">{e.name}</h3>
-            <span className="tnum text-sm text-muted">{formatVolume(e.volume)}</span>
+            <span className="tnum text-sm text-muted">{formatVolume(e.volume, weightUnit)}</span>
           </div>
         ))}
 

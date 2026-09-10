@@ -145,9 +145,17 @@ export function computeLongestStreakDays(workouts: { started_at: string }[]): nu
   return longest;
 }
 
-export function formatVolume(volume: number): string {
-  if (volume >= 1000) return `${(volume / 1000).toFixed(1)} tons`;
-  return `${Math.round(volume)}kg`;
+// volumeKg is always the stored/computed value (kg) — unit only changes
+// how it's displayed, matching the boundary-conversion approach in
+// src/lib/units.ts (that file isn't imported here to avoid a cross-module
+// dependency for one conversion factor; kept in sync manually).
+export function formatVolume(volumeKg: number, unit: "kg" | "lbs" = "kg"): string {
+  if (unit === "lbs") {
+    const lbs = volumeKg / 0.45359237;
+    return `${Math.round(lbs).toLocaleString()}lbs`;
+  }
+  if (volumeKg >= 1000) return `${(volumeKg / 1000).toFixed(1)} tons`;
+  return `${Math.round(volumeKg)}kg`;
 }
 
 // Coarser than formatDuration below (minutes only, no seconds) — for

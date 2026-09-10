@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addGoal, deleteGoal } from "@/app/progress/goalActions";
 import SubmitButton from "@/components/SubmitButton";
 import { CloseIcon } from "@/components/UIIcons";
+import { toDisplayWeight, type WeightUnit } from "@/lib/units";
 
 type Goal = {
   id: string;
@@ -17,9 +18,11 @@ type Goal = {
 export default function GoalsSection({
   goals,
   exercises,
+  weightUnit,
 }: {
   goals: Goal[];
   exercises: { id: string; name: string }[];
+  weightUnit: WeightUnit;
 }) {
   const [formOpen, setFormOpen] = useState(false);
 
@@ -55,6 +58,7 @@ export default function GoalsSection({
               </option>
             ))}
           </select>
+          <input type="hidden" name="unit" value={weightUnit} />
           <div className="flex gap-2">
             <input
               name="targetWeightKg"
@@ -62,7 +66,7 @@ export default function GoalsSection({
               step="0.5"
               min="0"
               required
-              placeholder="Target (kg)"
+              placeholder={`Target (${weightUnit})`}
               className="flex-1 rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
             />
             <input
@@ -90,7 +94,9 @@ export default function GoalsSection({
                   <div className="min-w-0">
                     <p className="font-medium">{g.exerciseName}</p>
                     <p className="tnum text-xs text-muted">
-                      {g.currentBestKg}kg / {g.targetWeightKg}kg
+                      {toDisplayWeight(g.currentBestKg, weightUnit)}
+                      {weightUnit} / {toDisplayWeight(g.targetWeightKg, weightUnit)}
+                      {weightUnit}
                       {g.targetDate && ` · by ${new Date(g.targetDate).toLocaleDateString()}`}
                     </p>
                   </div>

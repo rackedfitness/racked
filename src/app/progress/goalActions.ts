@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { toKg, type WeightUnit } from "@/lib/units";
 
 export async function addGoal(formData: FormData) {
   const supabase = await createClient();
@@ -12,16 +13,17 @@ export async function addGoal(formData: FormData) {
   if (!user) redirect("/login");
 
   const exerciseId = String(formData.get("exerciseId") ?? "");
-  const targetWeightKg = Number(formData.get("targetWeightKg"));
+  const targetWeightRaw = Number(formData.get("targetWeightKg"));
+  const unit = (formData.get("unit") as WeightUnit | null) ?? "kg";
   const targetDate = String(formData.get("targetDate") ?? "") || null;
 
   if (!exerciseId) throw new Error("Pick an exercise.");
-  if (!targetWeightKg || targetWeightKg <= 0) throw new Error("Enter a target weight.");
+  if (!targetWeightRaw || targetWeightRaw <= 0) throw new Error("Enter a target weight.");
 
   const { error } = await supabase.from("goals").insert({
     user_id: user.id,
     exercise_id: exerciseId,
-    target_weight_kg: targetWeightKg,
+    target_weight_kg: toKg(targetWeightRaw, unit),
     target_date: targetDate,
   });
   if (error) throw new Error(error.message);

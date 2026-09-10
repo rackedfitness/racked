@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { workoutVolume, type WorkoutLite } from "@/lib/stats";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
+import { workoutVolume, formatVolume, type WorkoutLite } from "@/lib/stats";
 import { ArrowLeftIcon } from "@/components/UIIcons";
 
 const CELL = 12;
@@ -29,6 +29,7 @@ export default async function TrainingCalendarPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const weightUnit = await getWeightUnit();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -94,7 +95,7 @@ export default async function TrainingCalendarPage() {
                 return (
                   <div
                     key={di}
-                    title={`${day.date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}${day.volume > 0 ? ` — ${Math.round(day.volume)} kg volume` : ""}`}
+                    title={`${day.date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}${day.volume > 0 ? ` — ${formatVolume(day.volume, weightUnit)} volume` : ""}`}
                     className="rounded-[2px]"
                     style={{
                       width: CELL,

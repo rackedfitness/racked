@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatVolume, formatWorkoutDuration } from "@/lib/stats";
+import type { WeightUnit } from "@/lib/units";
 
 type RecapData = {
   title: string;
@@ -11,6 +12,7 @@ type RecapData = {
   prCount: number;
   caloriesBurned: number;
   gymName: string | null;
+  weightUnit: WeightUnit;
 };
 
 const WIDTH = 1080;
@@ -85,7 +87,7 @@ async function drawRecapCard(data: RecapData): Promise<HTMLCanvasElement> {
 
   const stats: { value: string; label: string }[] = [];
   if (data.durationSeconds != null) stats.push({ value: formatWorkoutDuration(data.durationSeconds), label: "Time" });
-  stats.push({ value: formatVolume(data.volume), label: "Volume" });
+  stats.push({ value: formatVolume(data.volume, data.weightUnit), label: "Volume" });
   if (data.prCount > 0) stats.push({ value: String(data.prCount), label: "New PRs" });
   if (data.caloriesBurned > 0) stats.push({ value: String(Math.round(data.caloriesBurned)), label: "Calories" });
 

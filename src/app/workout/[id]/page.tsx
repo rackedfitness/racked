@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
 import ShareRecapButton from "@/components/ShareRecapButton";
@@ -8,6 +8,7 @@ import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
 import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
+import { formatWeight } from "@/lib/units";
 import { toggleLike, addComment, deleteComment } from "@/app/social/actions";
 import { HeartIcon } from "@/components/UIIcons";
 import { computeRankUpEvents, type Sex } from "@/lib/rankSystem";
@@ -27,13 +28,14 @@ export default async function WorkoutDetailPage({
   // known after this pair — so they all fire together instead of one at a
   // time. This page used to be a ~10-query waterfall; it's 3 round trips now
   // (a 4th, sets, has its own hard dependency on workoutExercises below).
-  const [{ data: user }, { data: workout }] = await Promise.all([
+  const [{ data: user }, { data: workout }, weightUnit] = await Promise.all([
     supabase.auth.getUser().then((r) => ({ data: r.data.user })),
     supabase
       .from("workouts")
       .select("id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, gym_address")
       .eq("id", id)
       .single(),
+    getWeightUnit(),
   ]);
 
   if (!workout) notFound();
@@ -209,11 +211,11 @@ export default async function WorkoutDetailPage({
             {volume > 0 ? (
               <Link href={`/workout/${id}/volume`} className="block">
                 <p className="tnum text-lg font-bold text-accent underline decoration-accent/40 underline-offset-2">
-                  {formatVolume(volume)}
+                  {formatVolume(volume, weightUnit)}
                 </p>
               </Link>
             ) : (
-              <p className="tnum text-lg font-bold">{formatVolume(volume)}</p>
+              <p className="tnum text-lg font-bold">{formatVolume(volume, weightUnit)}</p>
             )}
             <p className="text-xs text-muted">Volume</p>
           </div>
@@ -281,7 +283,7 @@ export default async function WorkoutDetailPage({
                       </>
                     ) : (
                       <>
-                        <span>{s.weight ?? "-"} kg</span>
+                        <span>{s.weight != null ? formatWeight(s.weight, weightUnit) : "-"}</span>
                         <span>{s.reps ?? "-"} reps</span>
                       </>
                     )}
@@ -364,6 +366,7 @@ export default async function WorkoutDetailPage({
             prCount={prEvents.length}
             caloriesBurned={caloriesBurned}
             gymName={workout.gym_name}
+            weightUnit={weightUnit}
           />
         </div>
       </div>

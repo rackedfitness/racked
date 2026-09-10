@@ -9,6 +9,7 @@ export async function updateProfile(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const sex = String(formData.get("sex") ?? "");
   const ageRaw = String(formData.get("age") ?? "");
+  const weightUnit = String(formData.get("weightUnit") ?? "");
 
   const supabase = await createClient();
   const {
@@ -22,6 +23,7 @@ export async function updateProfile(formData: FormData) {
       display_name: displayName,
       sex: sex === "male" || sex === "female" ? sex : null,
       age: ageRaw ? Number(ageRaw) : null,
+      weight_unit: weightUnit === "lbs" ? "lbs" : "kg",
     })
     .eq("id", user.id);
 

@@ -1,5 +1,6 @@
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, getWeightUnit } from "@/lib/supabase/server";
 import { workoutVolume, workoutBestSetPerExercise, type WorkoutLite } from "@/lib/stats";
+import { formatWeight } from "@/lib/units";
 import ProgressCharts from "@/components/ProgressCharts";
 import GoalsSection from "@/components/GoalsSection";
 import { logMeasurement } from "@/app/progress/actions";
@@ -12,6 +13,7 @@ export default async function ProgressPage({
   const { exercise: initialExerciseId } = await searchParams;
   const supabase = await createClient();
   const user = await getUser();
+  const weightUnit = await getWeightUnit();
 
   const { data: rawWorkouts } = await supabase
     .from("workouts")
@@ -92,6 +94,7 @@ export default async function ProgressPage({
         oneRMByExercise={oneRMByExercise}
         weightData={weightData}
         initialExerciseId={initialExerciseId}
+        weightUnit={weightUnit}
       />
 
       <GoalsSection
@@ -104,6 +107,7 @@ export default async function ProgressPage({
           currentBestKg: bestEverByExercise[g.exercise_id] ?? 0,
         }))}
         exercises={(allExercises ?? []).map((e) => ({ id: e.id, name: e.name }))}
+        weightUnit={weightUnit}
       />
 
       <div>
@@ -112,11 +116,12 @@ export default async function ProgressPage({
         </div>
 
         <form action={logMeasurement} className="mb-3 flex gap-2">
+          <input type="hidden" name="unit" value={weightUnit} />
           <input
             name="weightKg"
             type="number"
             step="0.1"
-            placeholder="Weight (kg)"
+            placeholder={`Weight (${weightUnit})`}
             className="flex-1 rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
           />
           <button
@@ -135,7 +140,7 @@ export default async function ProgressPage({
                   <span className="text-muted">
                     {new Date(m.logged_at).toLocaleDateString()}
                   </span>
-                  <span>{m.weight_kg ? `${m.weight_kg} kg` : "-"}</span>
+                  <span>{m.weight_kg ? formatWeight(m.weight_kg, weightUnit) : "-"}</span>
                 </div>
               ))}
             </div>

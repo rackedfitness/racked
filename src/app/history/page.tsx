@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
 import { attachPRCounts, computePREvents, formatVolume, type WorkoutLite } from "@/lib/stats";
+import { formatWeight } from "@/lib/units";
 import { computeLiftRank, liftKeyForExerciseName, type Sex } from "@/lib/rankSystem";
 import RankBadge from "@/components/RankBadge";
 import { ArrowLeftIcon } from "@/components/UIIcons";
@@ -17,6 +18,7 @@ export default async function HistoryPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const weightUnit = await getWeightUnit();
 
   const { data: rawWorkouts } = await supabase
     .from("workouts")
@@ -158,7 +160,7 @@ export default async function HistoryPage({
                   )}
                 </div>
                 <div className="tnum flex items-center gap-2 text-sm text-muted">
-                  <span>{formatVolume(w.volume)}</span>
+                  <span>{formatVolume(w.volume, weightUnit)}</span>
                   <span>{durationMin} min</span>
                   {w.prCount > 0 && (
                     <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
@@ -203,7 +205,7 @@ export default async function HistoryPage({
               </div>
               <div className="flex flex-col items-end gap-1">
                 <span className="tnum text-sm">
-                  {ev.weight}kg × {ev.reps}
+                  {formatWeight(ev.weight, weightUnit)} × {ev.reps}
                 </span>
                 <RankBadge rank={ev.rank} size="sm" />
               </div>

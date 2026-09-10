@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient, getUser } from "@/lib/supabase/server";
+import type { WeightUnit } from "@/lib/units";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import {
   attachPRCounts,
@@ -40,7 +41,11 @@ export default async function DashboardPage({
     { count: followingCount },
     cookieStore,
   ] = await Promise.all([
-    supabase.from("profiles").select("display_name, username, avatar_url, sex, age").eq("id", user!.id).single(),
+    supabase
+      .from("profiles")
+      .select("display_name, username, avatar_url, sex, age, weight_unit")
+      .eq("id", user!.id)
+      .single(),
     supabase
       .from("workouts")
       .select(
@@ -90,6 +95,7 @@ export default async function DashboardPage({
   const longestStreak = computeLongestStreakDays(workouts);
   const milestone = nextStreakMilestone(streak);
   const recent = withPRs.slice(0, 5);
+  const weightUnit = (profile?.weight_unit as WeightUnit | undefined) ?? "kg";
 
   const onboardingItems = [
     { label: "Log your first workout", done: workouts.length > 0, href: "/workout/new" },
@@ -126,7 +132,7 @@ export default async function DashboardPage({
         </div>
         <div className="rounded-lg border border-card-border bg-card p-3">
           <p className="text-[10px] uppercase tracking-wide text-muted">Total volume</p>
-          <p className="tnum mt-1 text-2xl">{formatVolume(totalVolume)}</p>
+          <p className="tnum mt-1 text-2xl">{formatVolume(totalVolume, weightUnit)}</p>
         </div>
         <div className="rounded-lg border border-card-border bg-card p-3">
           <p className="text-[10px] uppercase tracking-wide text-muted">This week</p>
@@ -227,7 +233,7 @@ export default async function DashboardPage({
                 </p>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span className="tnum text-muted">{formatVolume(w.volume)}</span>
+                <span className="tnum text-muted">{formatVolume(w.volume, weightUnit)}</span>
                 {w.prCount > 0 && (
                   <span className="tnum rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
                     🏆 {w.prCount} PR{w.prCount > 1 ? "s" : ""}

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
 import { computePREvents, type WorkoutLite } from "@/lib/stats";
+import { formatWeight } from "@/lib/units";
 import { ArrowLeftIcon } from "@/components/UIIcons";
 
 export default async function WorkoutPRsPage({
@@ -11,6 +12,7 @@ export default async function WorkoutPRsPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const weightUnit = await getWeightUnit();
 
   const { data: workout } = await supabase
     .from("workouts")
@@ -63,9 +65,9 @@ export default async function WorkoutPRsPage({
           <div key={e.exerciseId} className="rounded-lg border border-accent bg-accent/10 p-3">
             <h3 className="font-semibold">{exerciseNames[e.exerciseId] ?? "Exercise"}</h3>
             <p className="tnum text-sm text-muted">
-              {e.weight}kg × {e.reps} reps <span className="text-accent">— new PR</span>
+              {formatWeight(e.weight, weightUnit)} × {e.reps} reps <span className="text-accent">— new PR</span>
             </p>
-            <p className="tnum text-xs text-muted">Est. 1RM: {Math.round(e.est1RM)}kg</p>
+            <p className="tnum text-xs text-muted">Est. 1RM: {formatWeight(e.est1RM, weightUnit)}</p>
           </div>
         ))}
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getWeightUnit } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import { workoutVolume, formatVolume, type WorkoutLite } from "@/lib/stats";
 import { ArrowLeftIcon } from "@/components/UIIcons";
@@ -24,6 +24,7 @@ export default async function LeaderboardPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const weightUnit = await getWeightUnit();
 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -168,7 +169,7 @@ export default async function LeaderboardPage({
                   <span className="text-sm font-medium">{p.display_name ?? p.username}</span>
                 </Link>
               </div>
-              <span className="tnum text-sm text-muted">{formatVolume(p.volume)}</span>
+              <span className="tnum text-sm text-muted">{formatVolume(p.volume, weightUnit)}</span>
             </div>
           ))}
 
