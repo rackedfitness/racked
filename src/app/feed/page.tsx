@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PersonRow from "@/components/PersonRow";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
@@ -14,10 +14,7 @@ export default async function FeedPage({
 }) {
   const { q } = await searchParams;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   const [{ data: workouts, error: workoutsError }, searchResult, followingResult] = await Promise.all([
     q

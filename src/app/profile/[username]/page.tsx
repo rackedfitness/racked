@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { follow, unfollow } from "@/app/social/actions";
 import { workoutVolume, formatVolume, computeStreakDays, computeBestEverMap, type WorkoutLite } from "@/lib/stats";
 import { computeAllLiftRanks, bestOverallRank, type Sex } from "@/lib/rankSystem";
@@ -19,10 +19,7 @@ export default async function ProfilePage({
 }) {
   const { username } = await params;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   const { data: profile } = await supabase
     .from("profiles")

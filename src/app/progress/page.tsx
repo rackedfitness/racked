@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { workoutVolume, workoutBestSetPerExercise, type WorkoutLite } from "@/lib/stats";
 import ProgressCharts from "@/components/ProgressCharts";
 import { logMeasurement } from "@/app/progress/actions";
@@ -10,9 +10,7 @@ export default async function ProgressPage({
 }) {
   const { exercise: initialExerciseId } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   const { data: rawWorkouts } = await supabase
     .from("workouts")

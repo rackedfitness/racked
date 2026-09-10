@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import {
   attachPRCounts,
   computeStreakDays,
@@ -23,9 +23,7 @@ export default async function DashboardPage({
   const { demo } = await searchParams;
   const streakDemoMode = demo === "streak";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   const bodyMapCutoff = new Date();
   bodyMapCutoff.setDate(bodyMapCutoff.getDate() - 7);
