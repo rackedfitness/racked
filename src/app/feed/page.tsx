@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PersonRow from "@/components/PersonRow";
+import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
 import { HeartIcon, CommentIcon } from "@/components/UIIcons";
 import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
@@ -116,17 +117,7 @@ export default async function FeedPage({
         </div>
       </div>
 
-      <form className="flex gap-2">
-        <input
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Search by username"
-          className="flex-1 rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
-        />
-        <button type="submit" className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink">
-          Search
-        </button>
-      </form>
+      <UsernameSearchInput defaultValue={q ?? ""} />
 
       {q ? (
         <div className="flex flex-col gap-3">
