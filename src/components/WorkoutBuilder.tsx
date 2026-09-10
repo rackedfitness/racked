@@ -229,6 +229,12 @@ export default function WorkoutBuilder({
         playRestCompleteSound();
         navigator.vibrate?.([120, 80, 120]);
         setRestTimer(null);
+        // The app was in the foreground for this tick to even run, so the
+        // sound above already covered it — cancel the native notification
+        // scheduled for the same moment so it doesn't also fire.
+        import("@/lib/restNotifications").then(({ cancelRestCompleteNotification }) =>
+          cancelRestCompleteNotification()
+        );
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -504,9 +510,15 @@ export default function WorkoutBuilder({
       // exercise instead of resting, and only rest once the chain ends.
       if (!ex.supersetWithNext) {
         setRestTimer({ exerciseId, endsAt: Date.now() + ex.restSeconds * 1000 });
+        import("@/lib/restNotifications").then(({ scheduleRestCompleteNotification }) =>
+          scheduleRestCompleteNotification(ex.restSeconds, ex.name)
+        );
       }
     } else if (restTimer?.exerciseId === exerciseId) {
       setRestTimer(null);
+      import("@/lib/restNotifications").then(({ cancelRestCompleteNotification }) =>
+        cancelRestCompleteNotification()
+      );
     }
 
     if (willComplete && bestIndex === idx) {
@@ -902,7 +914,12 @@ export default function WorkoutBuilder({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setRestTimer(null)}
+                    onClick={() => {
+                      setRestTimer(null);
+                      import("@/lib/restNotifications").then(({ cancelRestCompleteNotification }) =>
+                        cancelRestCompleteNotification()
+                      );
+                    }}
                     className="text-xs text-muted underline active:text-foreground"
                   >
                     Skip

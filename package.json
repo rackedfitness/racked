@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.124.0",
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@capacitor/local-notifications": "^8.3.1",
     "@flomentumsolutions/capacitor-health-extended": "^0.8.3",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
