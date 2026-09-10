@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import SubmitButton from "@/components/SubmitButton";
 import { follow, unfollow } from "@/app/social/actions";
 
 export default function PersonRow({
@@ -24,8 +25,7 @@ export default function PersonRow({
       </Link>
       {!isSelf && (
         <form action={action}>
-          <button
-            type="submit"
+          <SubmitButton
             className={
               isFollowing
                 ? "rounded-full border border-card-border px-3 py-2 text-sm font-medium text-muted"
@@ -33,7 +33,7 @@ export default function PersonRow({
             }
           >
             {isFollowing ? "Following" : "Follow"}
-          </button>
+          </SubmitButton>
         </form>
       )}
     </div>

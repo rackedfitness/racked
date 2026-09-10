@@ -5,6 +5,7 @@ import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
 import ShareRecapButton from "@/components/ShareRecapButton";
 import BackButton from "@/components/BackButton";
+import SubmitButton from "@/components/SubmitButton";
 import { computePREvents, formatDuration, formatVolume, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
 import { estimateCaloriesForCardioSet } from "@/lib/calories";
 import { toggleLike, addComment, deleteComment } from "@/app/social/actions";
@@ -184,13 +185,10 @@ export default async function WorkoutDetailPage({
 
       <div className="flex items-center gap-4">
         <form action={toggleLike.bind(null, id)}>
-          <button
-            type="submit"
-            className={`flex items-center gap-1.5 text-sm ${myLike ? "text-accent" : "text-muted"}`}
-          >
+          <SubmitButton className={`flex items-center gap-1.5 text-sm ${myLike ? "text-accent" : "text-muted"}`}>
             <HeartIcon size={20} filled={Boolean(myLike)} />
             {(likeCount ?? 0) > 0 && <span className="tnum">{likeCount}</span>}
-          </button>
+          </SubmitButton>
         </form>
         <a href="#comments" className="flex items-center gap-1.5 text-sm text-muted">
           {(comments?.length ?? 0)} comment{(comments?.length ?? 0) === 1 ? "" : "s"}
@@ -312,12 +310,9 @@ export default async function WorkoutDetailPage({
             placeholder="Add a comment..."
             className="flex-1 rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
           />
-          <button
-            type="submit"
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink"
-          >
+          <SubmitButton className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink">
             Post
-          </button>
+          </SubmitButton>
         </form>
 
         <div className="flex flex-col gap-3">
@@ -342,9 +337,7 @@ export default async function WorkoutDetailPage({
                   <p className="mt-0.5 whitespace-pre-wrap text-sm">{c.body}</p>
                   {c.user_id === user?.id && (
                     <form action={deleteComment.bind(null, c.id, id)} className="mt-1">
-                      <button type="submit" className="text-xs text-muted active:text-red-400">
-                        Delete
-                      </button>
+                      <SubmitButton className="text-xs text-muted active:text-red-400">Delete</SubmitButton>
                     </form>
                   )}
                 </div>

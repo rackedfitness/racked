@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient, getUser } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PersonRow from "@/components/PersonRow";
+import SubmitButton from "@/components/SubmitButton";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
 import { HeartIcon, CommentIcon } from "@/components/UIIcons";
@@ -206,13 +207,10 @@ export default async function FeedPage({
 
               <div className="flex items-center gap-4 border-t border-card-border pt-3">
                 <form action={toggleLike.bind(null, w.id)}>
-                  <button
-                    type="submit"
-                    className={`flex items-center gap-1.5 text-sm ${iLiked ? "text-accent" : "text-muted"}`}
-                  >
+                  <SubmitButton className={`flex items-center gap-1.5 text-sm ${iLiked ? "text-accent" : "text-muted"}`}>
                     <HeartIcon size={18} filled={iLiked} />
                     {likeCount > 0 && <span className="tnum">{likeCount}</span>}
-                  </button>
+                  </SubmitButton>
                 </form>
                 <Link href={`/workout/${w.id}#comments`} className="flex items-center gap-1.5 text-sm text-muted">
                   <CommentIcon size={18} />

@@ -10,6 +10,7 @@ import RankSection from "@/components/RankSection";
 import Avatar from "@/components/Avatar";
 import BackButton from "@/components/BackButton";
 import PremiumPromoBanner from "@/components/PremiumPromoBanner";
+import SubmitButton from "@/components/SubmitButton";
 import { GearIcon } from "@/components/UIIcons";
 
 export default async function ProfilePage({
@@ -125,8 +126,7 @@ export default async function ProfilePage({
           </Link>
         ) : (
           <form action={action}>
-            <button
-              type="submit"
+            <SubmitButton
               className={
                 isFollowing
                   ? "rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted"
@@ -134,7 +134,7 @@ export default async function ProfilePage({
               }
             >
               {isFollowing ? "Following" : "Follow"}
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>
