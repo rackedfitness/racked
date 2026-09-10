@@ -177,6 +177,15 @@ export default async function SettingsPage() {
           Log out
         </button>
       </form>
+
+      <div className="flex justify-center gap-4 text-xs text-muted">
+        <Link href="/privacy" className="underline">
+          Privacy Policy
+        </Link>
+        <Link href="/terms" className="underline">
+          Terms of Service
+        </Link>
+      </div>
     </div>
   );
 }

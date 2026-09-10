@@ -10,6 +10,10 @@ const PUBLIC_PATHS = [
   // stay reachable without auth, or every payment confirmation silently
   // gets redirected to /login and Premium never activates.
   "/api/stripe/webhook",
+  // Legal pages need to be readable by app store reviewers and prospective
+  // users who don't have (or haven't made) an account yet.
+  "/privacy",
+  "/terms",
 ];
 
 export async function updateSession(request: NextRequest) {
