@@ -5,6 +5,7 @@ import AccentPicker from "@/components/AccentPicker";
 import PinSettings from "@/components/PinSettings";
 import ExportDataButton from "@/components/ExportDataButton";
 import DeleteDataButton from "@/components/DeleteDataButton";
+import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { workoutVolume, formatVolume, type WorkoutLite } from "@/lib/stats";
 import Link from "next/link";
 import { logout } from "@/app/auth/actions";
@@ -159,8 +160,15 @@ export default async function SettingsPage() {
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-red-400">
           ⚠ Danger zone
         </h2>
-        <div className="rounded-lg border border-red-950 bg-card p-4">
-          <DeleteDataButton />
+        <div className="flex flex-col gap-3 rounded-lg border border-red-950 bg-card p-4">
+          <div>
+            <p className="mb-2 text-sm text-muted">Clear your workout history but keep your account and login.</p>
+            <DeleteDataButton />
+          </div>
+          <div className="border-t border-red-950 pt-3">
+            <p className="mb-2 text-sm text-muted">Permanently delete your account — this cancels any active subscription too.</p>
+            <DeleteAccountButton />
+          </div>
         </div>
       </div>
 

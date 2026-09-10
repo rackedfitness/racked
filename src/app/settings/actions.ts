@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
+import { stripe } from "@/lib/stripe";
 
 export async function updateProfile(formData: FormData) {
   const displayName = String(formData.get("displayName") ?? "");
@@ -83,5 +85,47 @@ export async function deleteMyData() {
   await supabase.from("body_measurements").delete().eq("user_id", user.id);
 
   revalidatePath("/");
+  redirect("/");
+}
+
+// Full account deletion, distinct from deleteMyData() above (which only
+// wipes content and keeps the account/login). Deletes the auth user itself
+// via the service-role admin API — every table referencing profiles.id was
+// built with "on delete cascade" (workouts, comments, likes, follows,
+// goals, blocks, notifications, subscriptions, reports, ...), so removing
+// the auth user cascades through all of it in one step rather than needing
+// to manually delete each table and risk missing one.
+export async function deleteMyAccount() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("stripe_subscription_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (subscription?.stripe_subscription_id) {
+    try {
+      await stripe.subscriptions.cancel(subscription.stripe_subscription_id);
+    } catch {
+      // If it's already canceled/missing on Stripe's side, that's fine —
+      // don't let a Stripe hiccup block the account deletion itself.
+    }
+  }
+
+  const adminClient = createServiceRoleClient();
+  const { error } = await adminClient.auth.admin.deleteUser(user.id);
+  if (error) throw new Error(error.message);
+
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // The account is already gone at this point either way — worst case
+    // the local session cookie lingers until it naturally expires.
+  }
   redirect("/");
 }
