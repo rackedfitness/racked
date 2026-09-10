@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { createClient, getUser } from "@/lib/supabase/server";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import {
   attachPRCounts,
   computeStreakDays,
@@ -28,32 +30,40 @@ export default async function DashboardPage({
   const bodyMapCutoff = new Date();
   bodyMapCutoff.setDate(bodyMapCutoff.getDate() - 7);
 
-  // None of these four depend on each other, only on user.id — one round
-  // trip instead of four sequential ones.
-  const [{ data: profile }, { data: rawWorkouts }, { data: templates }, { data: recentWorkouts }] =
-    await Promise.all([
-      supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user!.id).single(),
-      supabase
-        .from("workouts")
-        .select(
-          "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
-        )
-        .eq("user_id", user!.id)
-        .not("finished_at", "is", null)
-        .order("started_at", { ascending: false }),
-      supabase
-        .from("workout_templates")
-        .select("id, name")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(4),
-      supabase
-        .from("workouts")
-        .select("id, workout_exercises(exercises(category), workout_sets(is_warmup))")
-        .eq("user_id", user!.id)
-        .not("finished_at", "is", null)
-        .gte("started_at", bodyMapCutoff.toISOString()),
-    ]);
+  // None of these six depend on each other, only on user.id — one round
+  // trip instead of six sequential ones.
+  const [
+    { data: profile },
+    { data: rawWorkouts },
+    { data: templates },
+    { data: recentWorkouts },
+    { count: followingCount },
+    cookieStore,
+  ] = await Promise.all([
+    supabase.from("profiles").select("display_name, username, avatar_url, sex, age").eq("id", user!.id).single(),
+    supabase
+      .from("workouts")
+      .select(
+        "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
+      )
+      .eq("user_id", user!.id)
+      .not("finished_at", "is", null)
+      .order("started_at", { ascending: false }),
+    supabase
+      .from("workout_templates")
+      .select("id, name")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(4),
+    supabase
+      .from("workouts")
+      .select("id, workout_exercises(exercises(category), workout_sets(is_warmup))")
+      .eq("user_id", user!.id)
+      .not("finished_at", "is", null)
+      .gte("started_at", bodyMapCutoff.toISOString()),
+    supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user!.id),
+    cookies(),
+  ]);
 
   const muscleCounts = categorySetCounts(recentWorkouts ?? []);
   const hasRecentMuscleData = Object.keys(muscleCounts).length > 0;
@@ -81,8 +91,18 @@ export default async function DashboardPage({
   const milestone = nextStreakMilestone(streak);
   const recent = withPRs.slice(0, 5);
 
+  const onboardingItems = [
+    { label: "Log your first workout", done: workouts.length > 0, href: "/workout/new" },
+    { label: "Add your sex and age for ranks", done: Boolean(profile?.sex && profile?.age), href: "/settings" },
+    { label: "Follow someone", done: (followingCount ?? 0) > 0, href: "/people" },
+  ];
+  const showOnboarding = onboardingItems.some((i) => !i.done);
+  const onboardingDismissed = cookieStore.get("racked_onboarding_dismissed")?.value === "1";
+
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
+      {showOnboarding && <OnboardingChecklist items={onboardingItems} initiallyDismissed={onboardingDismissed} />}
+
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar url={profile?.avatar_url} name={profile?.display_name ?? profile?.username ?? "?"} size="md" />
