@@ -479,6 +479,38 @@ create index if not exists notifications_user_id_created_at_idx
   on public.notifications (user_id, created_at desc);
 
 -- =========================================
+-- goals (target weight on a specific lift, owner-only)
+-- =========================================
+create table if not exists public.goals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  exercise_id uuid not null references public.exercises(id) on delete cascade,
+  target_weight_kg numeric not null check (target_weight_kg > 0),
+  target_date date,
+  created_at timestamptz not null default now()
+);
+
+alter table public.goals enable row level security;
+
+drop policy if exists "users can view their own goals" on public.goals;
+create policy "users can view their own goals"
+  on public.goals for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "users can insert their own goals" on public.goals;
+create policy "users can insert their own goals"
+  on public.goals for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "users can delete their own goals" on public.goals;
+create policy "users can delete their own goals"
+  on public.goals for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- =========================================
 -- workout_templates (reusable workout plans, owner-only)
 -- =========================================
 create table if not exists public.workout_templates (

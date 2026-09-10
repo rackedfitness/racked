@@ -1,6 +1,7 @@
 import { createClient, getUser } from "@/lib/supabase/server";
 import { workoutVolume, workoutBestSetPerExercise, type WorkoutLite } from "@/lib/stats";
 import ProgressCharts from "@/components/ProgressCharts";
+import GoalsSection from "@/components/GoalsSection";
 import { logMeasurement } from "@/app/progress/actions";
 
 export default async function ProgressPage({
@@ -48,21 +49,33 @@ export default async function ProgressPage({
     }
   }
 
-  const [{ data: measurements }, { data: measurementsForChart }] = await Promise.all([
-    supabase
-      .from("body_measurements")
-      .select("id, weight_kg, note, logged_at")
-      .eq("user_id", user!.id)
-      .order("logged_at", { ascending: false })
-      .limit(10),
-    supabase
-      .from("body_measurements")
-      .select("weight_kg, logged_at")
-      .eq("user_id", user!.id)
-      .not("weight_kg", "is", null)
-      .order("logged_at", { ascending: true })
-      .limit(60),
-  ]);
+  const [{ data: measurements }, { data: measurementsForChart }, { data: allExercises }, { data: goals }] =
+    await Promise.all([
+      supabase
+        .from("body_measurements")
+        .select("id, weight_kg, note, logged_at")
+        .eq("user_id", user!.id)
+        .order("logged_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("body_measurements")
+        .select("weight_kg, logged_at")
+        .eq("user_id", user!.id)
+        .not("weight_kg", "is", null)
+        .order("logged_at", { ascending: true })
+        .limit(60),
+      supabase.from("exercises").select("id, name").order("name"),
+      supabase
+        .from("goals")
+        .select("id, exercise_id, target_weight_kg, target_date, exercises(name)")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+  const bestEverByExercise: Record<string, number> = {};
+  for (const [exerciseId, points] of Object.entries(oneRMByExercise)) {
+    bestEverByExercise[exerciseId] = Math.max(...points.map((p) => p.value));
+  }
 
   const weightData = (measurementsForChart ?? []).map((m) => ({
     date: new Date(m.logged_at).toLocaleDateString(undefined, { day: "2-digit", month: "short" }),
@@ -79,6 +92,18 @@ export default async function ProgressPage({
         oneRMByExercise={oneRMByExercise}
         weightData={weightData}
         initialExerciseId={initialExerciseId}
+      />
+
+      <GoalsSection
+        goals={(goals ?? []).map((g) => ({
+          id: g.id,
+          exerciseId: g.exercise_id,
+          exerciseName: (Array.isArray(g.exercises) ? g.exercises[0] : g.exercises)?.name ?? "Exercise",
+          targetWeightKg: g.target_weight_kg,
+          targetDate: g.target_date,
+          currentBestKg: bestEverByExercise[g.exercise_id] ?? 0,
+        }))}
+        exercises={(allExercises ?? []).map((e) => ({ id: e.id, name: e.name }))}
       />
 
       <div>
