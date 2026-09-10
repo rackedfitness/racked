@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { follow, unfollow } from "@/app/social/actions";
 import { workoutVolume, formatVolume, computeStreakDays, computeBestEverMap, type WorkoutLite } from "@/lib/stats";
 import { computeAllLiftRanks, bestOverallRank, type Sex } from "@/lib/rankSystem";
+import { getSubscription, isPremiumStatus } from "@/lib/subscription";
 import RankSection from "@/components/RankSection";
 import Avatar from "@/components/Avatar";
 import BackButton from "@/components/BackButton";
+import PremiumPromoBanner from "@/components/PremiumPromoBanner";
 import { GearIcon } from "@/components/UIIcons";
 
 export default async function ProfilePage({
@@ -94,8 +97,17 @@ export default async function ProfilePage({
 
   const action = isFollowing ? unfollow.bind(null, profile.id) : follow.bind(null, profile.id);
 
+  let showPremiumPromo = false;
+  let promoDismissed = false;
+  if (isSelf) {
+    const [subscription, cookieStore] = await Promise.all([getSubscription(profile.id), cookies()]);
+    showPremiumPromo = !isPremiumStatus(subscription?.status);
+    promoDismissed = cookieStore.get("racked_premium_promo_dismissed")?.value === "1";
+  }
+
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
+      {showPremiumPromo && <PremiumPromoBanner initiallyDismissed={promoDismissed} />}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {!isSelf && <BackButton />}
