@@ -18,6 +18,20 @@ export default function PremiumActionButton({
     setLoading(true);
     setError(null);
     try {
+      // Apple requires digital subscriptions purchased *inside* the app to
+      // go through their own In-App Purchase system — launching Stripe
+      // Checkout from the native wrapper isn't allowed. Managing an
+      // existing subscription (the "portal" mode) isn't a new purchase, so
+      // that's left alone; only "checkout" is gated here.
+      if (mode === "checkout") {
+        const { Capacitor } = await import("@capacitor/core");
+        if (Capacitor.isNativePlatform()) {
+          setError("Subscribe from racked-xyao.vercel.app in your browser — this can't be purchased in the app.");
+          setLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/stripe/${mode}`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error ?? "Something went wrong");
