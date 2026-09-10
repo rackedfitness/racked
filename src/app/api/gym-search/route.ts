@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 // Restricts results to places actually tagged as a gym/fitness facility in
 // OpenStreetMap — without this, searching a common word ("gold") would surface
@@ -15,6 +17,26 @@ type LocationIqResult = {
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ results: [] });
+
+  // This calls a paid third-party API per request — require login (this
+  // route previously had no auth check at all) and cap how often any one
+  // user can call it, so it can't be scripted into an unbounded LocationIQ
+  // bill.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  const withinLimit = await checkRateLimit({
+    userId: user.id,
+    bucket: "gym-search",
+    windowSeconds: 60,
+    maxRequests: 30,
+  });
+  if (!withinLimit) {
+    return NextResponse.json({ error: "Too many searches — try again in a minute." }, { status: 429 });
+  }
 
   const apiKey = process.env.LOCATIONIQ_API_KEY;
   if (!apiKey) return NextResponse.json({ results: [] });

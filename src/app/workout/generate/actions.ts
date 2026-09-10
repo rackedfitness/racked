@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { isPremiumStatus } from "@/lib/subscription";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -23,6 +24,18 @@ export async function generateWorkoutFromEquipment(input: { photoBase64?: string
     .maybeSingle();
   if (!isPremiumStatus(subscription?.status)) {
     throw new Error("This feature is Premium only.");
+  }
+
+  // Each call costs real Anthropic API spend — cap it so Premium status
+  // alone can't be scripted into an unbounded bill.
+  const withinLimit = await checkRateLimit({
+    userId: user.id,
+    bucket: "ai-generate",
+    windowSeconds: 60 * 60 * 24,
+    maxRequests: 10,
+  });
+  if (!withinLimit) {
+    throw new Error("You've hit today's limit for AI-generated workouts — try again tomorrow.");
   }
 
   const machineNames = input.machineNames?.trim();

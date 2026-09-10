@@ -989,3 +989,49 @@ create policy "users can view their own subscription"
   on public.subscriptions for select
   to authenticated
   using (user_id = auth.uid());
+
+-- =========================================
+-- api_rate_limits (abuse protection for paid third-party API calls —
+-- the AI generator and gym search, both of which cost real money per call)
+--
+-- Written only by server code holding the service-role key, via the
+-- increment_rate_limit() function below — no RLS policies needed since
+-- that bypasses RLS entirely, same as subscriptions above.
+-- =========================================
+create table if not exists public.api_rate_limits (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  bucket text not null,
+  window_start timestamptz not null,
+  count int not null default 0,
+  primary key (user_id, bucket, window_start)
+);
+
+alter table public.api_rate_limits enable row level security;
+
+-- Atomic upsert-increment so concurrent requests can't race past the limit
+-- the way a read-then-write from application code could.
+create or replace function public.increment_rate_limit(p_user_id uuid, p_bucket text, p_window_start timestamptz)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_count int;
+begin
+  -- security definer bypasses RLS, so this check is what stops a caller
+  -- from incrementing (and exhausting) some other user's bucket.
+  if p_user_id <> auth.uid() then
+    raise exception 'Cannot increment another user''s rate limit';
+  end if;
+
+  insert into public.api_rate_limits (user_id, bucket, window_start, count)
+  values (p_user_id, p_bucket, p_window_start, 1)
+  on conflict (user_id, bucket, window_start)
+  do update set count = api_rate_limits.count + 1
+  returning count into new_count;
+  return new_count;
+end;
+$$;
+
+grant execute on function public.increment_rate_limit(uuid, text, timestamptz) to authenticated;
