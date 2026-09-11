@@ -19,7 +19,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, username, sex, age, avatar_url, weight_unit")
+    .select("display_name, username, sex, age, avatar_url, weight_unit, is_admin")
     .eq("id", user!.id)
     .single();
 
@@ -184,6 +184,16 @@ export default async function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {profile?.is_admin && (
+        <Link
+          href="/admin"
+          className="flex items-center justify-between rounded-lg border border-card-border bg-card p-4 text-sm"
+        >
+          <span>🛡 Admin — report review</span>
+          <span className="text-muted">→</span>
+        </Link>
+      )}
 
       <form action={logout}>
         <button type="submit" className="text-sm text-muted underline">

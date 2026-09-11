@@ -7,7 +7,7 @@ import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
 import { getMutualBlockedIds } from "@/app/moderation/actions";
 import { HeartIcon, CommentIcon, BellIcon } from "@/components/UIIcons";
-import { attachPRCounts, formatWorkoutDuration, type WorkoutLite } from "@/lib/stats";
+import { formatWorkoutDuration } from "@/lib/stats";
 
 export default async function FeedPage({
   searchParams,
@@ -25,7 +25,7 @@ export default async function FeedPage({
       : supabase
           .from("workouts")
           .select(
-            "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+            "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, pr_count, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
           )
           .not("finished_at", "is", null)
           .eq("is_public", true)
@@ -60,31 +60,14 @@ export default async function FeedPage({
   const searchMatches = (searchResult.data ?? []).filter((p) => p.id !== user!.id);
   const followingIds = new Set((followingResult.data ?? []).map((f) => f.following_id));
 
-  const authorIds = [...new Set((workouts ?? []).map((w) => w.user_id))];
   const workoutIds = (workouts ?? []).map((w) => w.id);
 
-  // PR counts, likes, and comments are all independent of each other (once
-  // we know which workouts/authors are on this page), so they run together
-  // instead of one waiting on the previous to finish.
-  const prCountByWorkout = new Map<string, number>();
-  const [, likesResult, commentsResult] = await Promise.all([
-    // PR counts need each author's full workout history (to know what was
-    // already a best before this one), so fetch per unique author rather
-    // than per workout — a handful of extra queries instead of one per card.
-    Promise.all(
-      authorIds.map(async (authorId) => {
-        const { data: authorWorkouts } = await supabase
-          .from("workouts")
-          .select(
-            "id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))"
-          )
-          .eq("user_id", authorId)
-          .not("finished_at", "is", null)
-          .order("started_at");
-        const withPRs = attachPRCounts((authorWorkouts ?? []) as unknown as WorkoutLite[]);
-        for (const w of withPRs) prCountByWorkout.set(w.id, w.prCount);
-      })
-    ),
+  // Likes and comments are independent of each other (once we know which
+  // workouts are on this page), so they run together. PR counts come
+  // straight off workouts.pr_count now — precomputed once at save time
+  // (see saveWorkout) — instead of refetching every unique author's entire
+  // workout history on every feed view.
+  const [likesResult, commentsResult] = await Promise.all([
     // Fetched as separate queries rather than embedded (count) joins on the
     // main select — a workout with zero likes/comments could otherwise be
     // silently dropped from the results if either embed resolves as an inner
@@ -180,7 +163,7 @@ export default async function FeedPage({
           const likeCount = likeCounts.get(w.id) ?? 0;
           const commentCount = commentCounts.get(w.id) ?? 0;
           const iLiked = likedIds.has(w.id);
-          const prCount = prCountByWorkout.get(w.id) ?? 0;
+          const prCount = w.pr_count ?? 0;
           const durationSeconds = w.finished_at
             ? Math.max(0, Math.round((new Date(w.finished_at).getTime() - new Date(w.started_at).getTime()) / 1000))
             : null;

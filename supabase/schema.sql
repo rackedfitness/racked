@@ -21,6 +21,10 @@ alter table public.profiles add column if not exists age int check (age > 0 and 
 -- regardless of this setting
 alter table public.profiles add column if not exists weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lbs'));
 
+-- grants access to /admin (report review, moderation tools) — set manually,
+-- there is no in-app way to grant this to another account
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
 alter table public.profiles enable row level security;
 
 drop policy if exists "profiles are viewable by any authenticated user" on public.profiles;
@@ -156,8 +160,25 @@ create table if not exists public.workouts (
 
 alter table public.workouts add column if not exists is_public boolean not null default true;
 alter table public.workouts add column if not exists photo_url text;
+alter table public.workouts add column if not exists gym_name text;
+alter table public.workouts add column if not exists gym_address text;
+alter table public.workouts add column if not exists gym_place_id text;
+
+-- Computed once (in saveWorkout) and stored, instead of recomputed from a
+-- caller's full workout history on every read — the Feed used to refetch
+-- every unique author's entire history per page view just to badge PRs.
+-- Null means "not backfilled yet" (see admin_backfill_pr_counts below), not
+-- "zero PRs".
+alter table public.workouts add column if not exists pr_count int;
 
 alter table public.workouts enable row level security;
+
+create index if not exists workouts_public_started_idx
+  on public.workouts (is_public, started_at desc) where finished_at is not null;
+create index if not exists workouts_gym_place_started_idx
+  on public.workouts (gym_place_id, started_at desc) where finished_at is not null;
+create index if not exists workouts_user_started_idx
+  on public.workouts (user_id, started_at desc) where finished_at is not null;
 
 drop policy if exists "users can view own workouts or workouts of people they follow" on public.workouts;
 drop policy if exists "users can view own workouts or public workouts of people they follow" on public.workouts;
@@ -1096,3 +1117,109 @@ create policy "users can submit reports as themselves"
   on public.reports for insert
   to authenticated
   with check (reporter_id = auth.uid());
+
+-- =========================================
+-- admin moderation (security definer functions, gated on profiles.is_admin)
+--
+-- Kept as narrow RPCs rather than broadening RLS on workouts/comments/etc
+-- for admins — smaller blast radius, and every function checks is_admin
+-- itself even though it also runs as security definer.
+-- =========================================
+create or replace function public.admin_list_reports()
+returns table (
+  id uuid,
+  reporter_username text,
+  reported_username text,
+  workout_id uuid,
+  workout_title text,
+  comment_id uuid,
+  comment_body text,
+  reason text,
+  status text,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+    raise exception 'Not authorized';
+  end if;
+
+  return query
+  select
+    r.id,
+    reporter.username,
+    reported.username,
+    r.workout_id,
+    w.title,
+    r.comment_id,
+    c.body,
+    r.reason,
+    r.status,
+    r.created_at
+  from public.reports r
+  left join public.profiles reporter on reporter.id = r.reporter_id
+  left join public.profiles reported on reported.id = r.reported_user_id
+  left join public.workouts w on w.id = r.workout_id
+  left join public.workout_comments c on c.id = r.comment_id
+  order by r.created_at desc;
+end;
+$$;
+
+grant execute on function public.admin_list_reports() to authenticated;
+
+create or replace function public.admin_update_report_status(p_report_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+    raise exception 'Not authorized';
+  end if;
+  if p_status not in ('open', 'reviewed', 'dismissed') then
+    raise exception 'Invalid status';
+  end if;
+
+  update public.reports set status = p_status where id = p_report_id;
+end;
+$$;
+
+grant execute on function public.admin_update_report_status(uuid, text) to authenticated;
+
+create or replace function public.admin_delete_workout(p_workout_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+    raise exception 'Not authorized';
+  end if;
+
+  delete from public.workouts where id = p_workout_id;
+end;
+$$;
+
+grant execute on function public.admin_delete_workout(uuid) to authenticated;
+
+create or replace function public.admin_delete_comment(p_comment_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+    raise exception 'Not authorized';
+  end if;
+
+  delete from public.workout_comments where id = p_comment_id;
+end;
+$$;
+
+grant execute on function public.admin_delete_comment(uuid) to authenticated;

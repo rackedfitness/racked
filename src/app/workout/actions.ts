@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { computeBestEverMap, workoutBestSetPerExercise, type WorkoutLite } from "@/lib/stats";
 
 export type SetInput = {
   weight: number | null;
@@ -144,6 +145,39 @@ export async function saveWorkout(input: {
 
     const { error: setsError } = await supabase.from("workout_sets").insert(setsPayload);
     if (setsError) throw new Error(setsError.message);
+  }
+
+  // Computed once here and stored, instead of recomputed from this user's
+  // entire workout history on every future read (the Feed used to do this
+  // per unique author, per page view). Prior history is fetched fresh
+  // (excluding the workout we just inserted) rather than reusing anything
+  // above, since it must reflect every workout that came before this one.
+  {
+    const { data: priorWorkoutsRaw } = await supabase
+      .from("workouts")
+      .select("id, title, started_at, finished_at, workout_exercises(exercise_id, workout_sets(weight, reps, is_warmup))")
+      .eq("user_id", user.id)
+      .not("finished_at", "is", null)
+      .neq("id", workout.id);
+
+    const bestEver = computeBestEverMap((priorWorkoutsRaw ?? []) as unknown as WorkoutLite[]);
+    const currentBest = workoutBestSetPerExercise({
+      id: workout.id,
+      title: basePayload.title,
+      started_at: basePayload.started_at,
+      finished_at: basePayload.finished_at,
+      workout_exercises: usableExercises.map((e) => ({
+        exercise_id: e.exerciseId,
+        workout_sets: e.sets.map((s) => ({ weight: s.weight, reps: s.reps, is_warmup: s.isWarmup })),
+      })),
+    });
+
+    let prCount = 0;
+    for (const [exerciseId, best] of currentBest) {
+      if (best.est1RM > (bestEver[exerciseId] ?? 0)) prCount++;
+    }
+
+    await supabase.from("workouts").update({ pr_count: prCount }).eq("id", workout.id);
   }
 
   if (input.alsoSaveAsPlan) {
