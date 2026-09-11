@@ -166,6 +166,9 @@ export default async function SettingsPage() {
             </div>
           </div>
           <ExportDataButton />
+          <Link href="/settings/import" className="text-center text-sm text-accent underline">
+            Import from Strong / Hevy (CSV)
+          </Link>
         </div>
       </div>
 
