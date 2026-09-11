@@ -122,6 +122,19 @@ export default async function SettingsPage() {
 
       <div>
         <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-muted">
+          🛠 Tools
+        </h2>
+        <Link
+          href="/tools/plate-calculator"
+          className="flex items-center justify-between rounded-lg border border-card-border bg-card p-4 text-sm"
+        >
+          <span>Plate calculator</span>
+          <span className="text-muted">→</span>
+        </Link>
+      </div>
+
+      <div>
+        <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-muted">
           🔒 Security
         </h2>
         <PinSettings />

@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { WeightUnit } from "@/lib/units";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import WeeklyRecapCard from "@/components/WeeklyRecapCard";
+import StreakReminderScheduler from "@/components/StreakReminderScheduler";
 import {
   attachPRCounts,
   computeStreakDays,
@@ -97,6 +99,20 @@ export default async function DashboardPage({
   const recent = withPRs.slice(0, 5);
   const weightUnit = (profile?.weight_unit as WeightUnit | undefined) ?? "kg";
 
+  const volumeThisWeek = workouts
+    .filter((w) => new Date(w.started_at).getTime() >= sevenDaysAgoCutoff.getTime())
+    .reduce((sum, w) => sum + workoutVolume(w), 0);
+  const volumeLastWeek = workouts
+    .filter((w) => {
+      const t = new Date(w.started_at).getTime();
+      return t >= fourteenDaysAgoCutoff.getTime() && t < sevenDaysAgoCutoff.getTime();
+    })
+    .reduce((sum, w) => sum + workoutVolume(w), 0);
+  const prCountThisWeek = withPRs
+    .filter((w) => new Date(w.started_at).getTime() >= sevenDaysAgoCutoff.getTime())
+    .reduce((sum, w) => sum + w.prCount, 0);
+  const hasLoggedToday = workouts.some((w) => new Date(w.started_at).toDateString() === new Date().toDateString());
+
   const onboardingItems = [
     { label: "Log your first workout", done: workouts.length > 0, href: "/workout/new" },
     { label: "Add your sex and age for ranks", done: Boolean(profile?.sex && profile?.age), href: "/settings" },
@@ -107,6 +123,7 @@ export default async function DashboardPage({
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
+      <StreakReminderScheduler streak={streak} hasLoggedToday={hasLoggedToday} />
       {showOnboarding && <OnboardingChecklist items={onboardingItems} initiallyDismissed={onboardingDismissed} />}
 
       <div className="flex items-center justify-between">
@@ -153,6 +170,15 @@ export default async function DashboardPage({
         milestone={milestone}
         demoMode={streakDemoMode}
       />
+
+      {thisWeekCount > 0 && (
+        <WeeklyRecapCard
+          volumeThisWeekKg={volumeThisWeek}
+          volumeLastWeekKg={volumeLastWeek}
+          prCountThisWeek={prCountThisWeek}
+          weightUnit={weightUnit}
+        />
+      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">

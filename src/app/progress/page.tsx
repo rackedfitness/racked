@@ -39,6 +39,9 @@ export default async function ProgressPage({
     : { data: [] };
 
   const oneRMByExercise: Record<string, { date: string; value: number }[]> = {};
+  const volumeByExercise: Record<string, { date: string; value: number }[]> = {};
+  const repsByExercise: Record<string, { date: string; value: number }[]> = {};
+  const bestWeightByExercise: Record<string, { date: string; value: number }[]> = {};
   for (const w of workouts) {
     const best = workoutBestSetPerExercise(w);
     const date = new Date(w.started_at).toLocaleDateString(undefined, {
@@ -48,6 +51,29 @@ export default async function ProgressPage({
     for (const [exerciseId, b] of best) {
       oneRMByExercise[exerciseId] ??= [];
       oneRMByExercise[exerciseId].push({ date, value: Math.round(b.est1RM) });
+    }
+
+    // Per-exercise volume/reps/best-weight for this workout — separate from
+    // the est1RM loop above since these are sums/maxes across every set for
+    // the exercise, not just its single best set.
+    const perExercise: Record<string, { volume: number; reps: number; bestWeight: number }> = {};
+    for (const we of w.workout_exercises) {
+      const acc = (perExercise[we.exercise_id] ??= { volume: 0, reps: 0, bestWeight: 0 });
+      for (const s of we.workout_sets) {
+        if (!s.weight || !s.reps) continue;
+        acc.volume += s.weight * s.reps;
+        acc.reps += s.reps;
+        if (s.weight > acc.bestWeight) acc.bestWeight = s.weight;
+      }
+    }
+    for (const [exerciseId, acc] of Object.entries(perExercise)) {
+      if (acc.reps === 0) continue;
+      volumeByExercise[exerciseId] ??= [];
+      volumeByExercise[exerciseId].push({ date, value: Math.round(acc.volume) });
+      repsByExercise[exerciseId] ??= [];
+      repsByExercise[exerciseId].push({ date, value: acc.reps });
+      bestWeightByExercise[exerciseId] ??= [];
+      bestWeightByExercise[exerciseId].push({ date, value: acc.bestWeight });
     }
   }
 
@@ -92,6 +118,9 @@ export default async function ProgressPage({
         volumeData={volumeData}
         exercises={(exercises ?? []).sort((a, b) => a.name.localeCompare(b.name))}
         oneRMByExercise={oneRMByExercise}
+        volumeByExercise={volumeByExercise}
+        repsByExercise={repsByExercise}
+        bestWeightByExercise={bestWeightByExercise}
         weightData={weightData}
         initialExerciseId={initialExerciseId}
         weightUnit={weightUnit}
