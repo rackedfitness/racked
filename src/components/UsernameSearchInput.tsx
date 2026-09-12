@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 
-type Suggestion = { id: string; username: string; display_name: string | null; avatar_url: string | null };
+type Suggestion = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  mutualCount: number;
+};
 
 export default function UsernameSearchInput({ defaultValue = "" }: { defaultValue?: string }) {
   const router = useRouter();
@@ -68,10 +74,15 @@ export default function UsernameSearchInput({ defaultValue = "" }: { defaultValu
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm active:bg-accent/10"
             >
               <Avatar url={s.avatar_url} name={s.display_name ?? s.username} size="sm" />
-              <span className="min-w-0 truncate">
+              <span className="min-w-0 flex-1 truncate">
                 <span className="font-medium">{s.display_name ?? s.username}</span>
                 <span className="ml-2 text-muted">@{s.username}</span>
               </span>
+              {s.mutualCount > 0 && (
+                <span className="tnum shrink-0 text-xs text-muted">
+                  {s.mutualCount} mutual{s.mutualCount === 1 ? "" : "s"}
+                </span>
+              )}
             </button>
           ))}
         </div>
