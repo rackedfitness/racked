@@ -2,50 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 
-// Restricts results to places actually tagged as a gym/fitness facility in
-// OpenStreetMap — without this, searching a common word ("gold") would surface
-// any business with that name, not just gyms. Kept as the first, precise pass;
-// see the fallback below for why it can't be the only pass.
-const GYM_TAGS = "leisure:fitness_centre,leisure:gym,leisure:sports_centre";
-
-type LocationIqResult = {
-  place_id?: string;
-  display_place?: string;
-  display_name?: string;
-  display_address?: string;
-  lat?: string;
-  lon?: string;
+type FoursquarePlace = {
+  fsq_id?: string;
+  fsq_place_id?: string;
+  name?: string;
+  geocodes?: { main?: { latitude?: number; longitude?: number } };
+  location?: { formatted_address?: string };
 };
 
 type GymResult = { name: string; address: string | null; placeId: string | null; lat: number | null; lng: number | null };
 
-function mapResults(data: LocationIqResult[]): GymResult[] {
+function mapResults(data: FoursquarePlace[]): GymResult[] {
   return (Array.isArray(data) ? data : []).map((r) => ({
-    name: r.display_place ?? r.display_name?.split(",")[0] ?? "Gym",
-    address: r.display_address ?? null,
-    placeId: r.place_id ?? null,
-    lat: r.lat ? Number(r.lat) : null,
-    lng: r.lon ? Number(r.lon) : null,
+    name: r.name ?? "Gym",
+    address: r.location?.formatted_address ?? null,
+    // Foursquare renamed fsq_id -> fsq_place_id in newer API versions —
+    // accept either so this doesn't silently break on a version bump.
+    placeId: r.fsq_place_id ?? r.fsq_id ?? null,
+    lat: r.geocodes?.main?.latitude ?? null,
+    lng: r.geocodes?.main?.longitude ?? null,
   }));
-}
-
-async function searchLocationIq(q: string, apiKey: string, opts: { tag?: string; near?: { lat: number; lon: number } | null }) {
-  const url = new URL("https://api.locationiq.com/v1/autocomplete");
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("q", q);
-  url.searchParams.set("limit", "8");
-  url.searchParams.set("format", "json");
-  if (opts.tag) url.searchParams.set("tag", opts.tag);
-  if (opts.near) {
-    // Biases ranking toward this point rather than restricting to it, so
-    // "browsing an area" narrows results without hiding a gym just outside it.
-    url.searchParams.set("lat", String(opts.near.lat));
-    url.searchParams.set("lon", String(opts.near.lon));
-  }
-
-  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-  if (!res.ok) return [];
-  return mapResults(await res.json());
 }
 
 export async function GET(request: NextRequest) {
@@ -56,10 +32,9 @@ export async function GET(request: NextRequest) {
   const nearLon = Number(request.nextUrl.searchParams.get("lon"));
   const near = Number.isFinite(nearLat) && Number.isFinite(nearLon) && request.nextUrl.searchParams.has("lat") ? { lat: nearLat, lon: nearLon } : null;
 
-  // This calls a paid third-party API per request — require login (this
-  // route previously had no auth check at all) and cap how often any one
-  // user can call it, so it can't be scripted into an unbounded LocationIQ
-  // bill.
+  // This calls a paid-tier-capable third-party API per request — require
+  // login and cap how often any one user can call it, so it can't be
+  // scripted into an unbounded Foursquare bill.
   const supabase = await createClient();
   const {
     data: { user },
@@ -76,26 +51,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Too many searches — try again in a minute." }, { status: 429 });
   }
 
-  const apiKey = process.env.LOCATIONIQ_API_KEY;
+  const apiKey = process.env.FOURSQUARE_API_KEY;
   if (!apiKey) return NextResponse.json({ results: [] });
 
+  // Foursquare's Places database is a proper commercial POI directory
+  // (unlike OpenStreetMap, which is crowd-mapped and tags gym chains
+  // inconsistently) — a plain relevance search on the query text is enough
+  // to find named brands reliably, no tag-based filtering or fallback pass
+  // needed the way the old LocationIQ/OSM search required.
+  const url = new URL("https://api.foursquare.com/v3/places/search");
+  url.searchParams.set("query", q);
+  url.searchParams.set("limit", "8");
+  if (near) {
+    // Biases ranking toward this point rather than restricting to it (no
+    // `radius` set), so a brand search still finds matches anywhere while
+    // ranking the closest ones first.
+    url.searchParams.set("ll", `${near.lat},${near.lon}`);
+  }
+
   try {
-    const tagged = await searchLocationIq(q, apiKey, { tag: GYM_TAGS, near });
+    const res = await fetch(url, {
+      headers: { Authorization: apiKey, Accept: "application/json" },
+    });
+    if (!res.ok) return NextResponse.json({ results: [] });
 
-    // Real-world gym chains (PureGym, The Gym Group, Anytime Fitness, ...)
-    // are tagged inconsistently across individual OSM locations — plenty
-    // are missing a `leisure=fitness_centre` tag entirely, so a tag-only
-    // search silently drops well-known brands. Only spend a second
-    // LocationIQ call when the precise pass came up thin, and merge in
-    // whatever it finds that the first pass didn't already return.
-    let results = tagged;
-    if (tagged.length < 3) {
-      const untagged = await searchLocationIq(q, apiKey, { near });
-      const seen = new Set(tagged.map((r) => r.placeId));
-      results = [...tagged, ...untagged.filter((r) => !seen.has(r.placeId))];
-    }
-
-    return NextResponse.json({ results });
+    const data = await res.json();
+    return NextResponse.json({ results: mapResults(data.results ?? []) });
   } catch {
     return NextResponse.json({ results: [] });
   }
