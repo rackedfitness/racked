@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 
+// Places API v2 response shape (places-api.foursquare.com) — lat/lng are
+// top-level per result, not nested under `geocodes.main` like the old
+// (now-retired) v3 api.foursquare.com endpoint used.
 type FoursquarePlace = {
-  fsq_id?: string;
   fsq_place_id?: string;
   name?: string;
-  geocodes?: { main?: { latitude?: number; longitude?: number } };
+  latitude?: number;
+  longitude?: number;
   location?: { formatted_address?: string };
 };
 
@@ -16,11 +19,9 @@ function mapResults(data: FoursquarePlace[]): GymResult[] {
   return (Array.isArray(data) ? data : []).map((r) => ({
     name: r.name ?? "Gym",
     address: r.location?.formatted_address ?? null,
-    // Foursquare renamed fsq_id -> fsq_place_id in newer API versions —
-    // accept either so this doesn't silently break on a version bump.
-    placeId: r.fsq_place_id ?? r.fsq_id ?? null,
-    lat: r.geocodes?.main?.latitude ?? null,
-    lng: r.geocodes?.main?.longitude ?? null,
+    placeId: r.fsq_place_id ?? null,
+    lat: r.latitude ?? null,
+    lng: r.longitude ?? null,
   }));
 }
 
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
   // inconsistently) — a plain relevance search on the query text is enough
   // to find named brands reliably, no tag-based filtering or fallback pass
   // needed the way the old LocationIQ/OSM search required.
-  const url = new URL("https://api.foursquare.com/v3/places/search");
+  const url = new URL("https://places-api.foursquare.com/places/search");
   url.searchParams.set("query", q);
   url.searchParams.set("limit", "8");
   if (near) {
@@ -71,7 +72,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(url, {
-      headers: { Authorization: apiKey, Accept: "application/json" },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "X-Places-Api-Version": "2025-06-17",
+        Accept: "application/json",
+      },
     });
     if (!res.ok) return NextResponse.json({ results: [] });
 
