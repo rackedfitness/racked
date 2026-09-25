@@ -50,6 +50,10 @@ export default async function GymDetailPage({
         </span>
       </div>
 
+      <a href="https://foursquare.com" target="_blank" rel="noopener noreferrer" className="-mt-2 self-start text-[11px] text-muted underline">
+        Place data powered by Foursquare
+      </a>
+
       {sortedTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {sortedTags.map(([tag, count]) => (

@@ -196,6 +196,11 @@ export default function GymsPage() {
           )}
         </div>
       )}
+      {query.trim().length >= 2 && (
+        <a href="https://foursquare.com" target="_blank" rel="noopener noreferrer" className="-mt-2 self-start text-[11px] text-muted underline">
+          Place data powered by Foursquare
+        </a>
+      )}
 
       {/* Browsing a different area — separate from the gym search above:
           this resolves a city/neighborhood and re-centers the map + biases

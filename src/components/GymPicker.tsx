@@ -107,6 +107,14 @@ export default function GymPicker({
               </button>
             ))
           )}
+          <a
+            href="https://foursquare.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block border-t border-card-border px-3 py-1.5 text-[10px] text-muted underline"
+          >
+            Place data powered by Foursquare
+          </a>
         </div>
       )}
     </div>
