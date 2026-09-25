@@ -42,6 +42,26 @@ export default async function SignupPage({
           minLength={6}
           className="rounded-md border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted"
         />
+        <label className="flex items-start gap-2 text-xs text-muted">
+          <input
+            name="agreeToTerms"
+            type="checkbox"
+            required
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-card-border bg-card accent-accent"
+          />
+          <span>
+            I&rsquo;m 13 or older, and I agree to Racked&rsquo;s{" "}
+            <Link href="/terms" className="underline" target="_blank">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline" target="_blank">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+
         <button
           type="submit"
           className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink"
@@ -55,18 +75,6 @@ export default async function SignupPage({
         <Link href="/login" className="font-medium text-accent underline">
           Log in
         </Link>
-      </p>
-
-      <p className="text-center text-xs text-muted">
-        By signing up, you agree to our{" "}
-        <Link href="/terms" className="underline">
-          Terms
-        </Link>{" "}
-        and{" "}
-        <Link href="/privacy" className="underline">
-          Privacy Policy
-        </Link>
-        .
       </p>
     </div>
   );

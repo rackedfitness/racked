@@ -211,6 +211,9 @@ export default async function SettingsPage() {
         <Link href="/terms" className="underline">
           Terms of Service
         </Link>
+        <Link href="/cookies" className="underline">
+          Cookie Policy
+        </Link>
       </div>
     </div>
   );

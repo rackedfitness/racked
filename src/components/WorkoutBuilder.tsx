@@ -1213,7 +1213,7 @@ export default function WorkoutBuilder({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={photoPreview}
-                  alt=""
+                  alt="Preview of the photo you selected for this workout"
                   className="h-40 w-full rounded-md border border-card-border object-cover"
                 />
                 <button

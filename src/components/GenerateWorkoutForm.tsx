@@ -62,7 +62,7 @@ export default function GenerateWorkoutForm() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photoPreview}
-              alt=""
+              alt="Preview of the equipment photo you selected"
               className="h-48 w-full rounded-md border border-card-border object-cover"
             />
             <button

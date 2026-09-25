@@ -203,7 +203,7 @@ export default async function FeedPage({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={w.photo_url}
-                    alt=""
+                    alt={`Photo from ${author?.display_name ?? author?.username ?? "this"}'s workout`}
                     className="max-h-96 w-full rounded-lg border border-card-border object-cover"
                   />
                 )}

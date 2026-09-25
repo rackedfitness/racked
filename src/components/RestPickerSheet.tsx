@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatDuration } from "@/lib/stats";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const ITEM_HEIGHT = 44;
 const MAX_SECONDS = 600;
@@ -20,6 +21,8 @@ export default function RestPickerSheet({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState(initialSeconds);
+
+  useEscapeToClose(onClose);
 
   useEffect(() => {
     const idx = Math.max(0, OPTIONS.indexOf(initialSeconds));
@@ -42,6 +45,9 @@ export default function RestPickerSheet({
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rest time"
     >
       <div
         className="w-full max-w-sm rounded-t-2xl border border-card-border bg-card p-4 sm:rounded-2xl"

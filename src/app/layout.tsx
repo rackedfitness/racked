@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Oswald } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 import PinGate from "@/components/PinGate";
 import StartupAnimation from "@/components/StartupAnimation";
+import CookieNoticeBanner from "@/components/CookieNoticeBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +39,10 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const cookieStore = await cookies();
+  const cookieNoticeDismissed = cookieStore.get("racked_cookie_notice_ack")?.value === "1";
+
   return (
     <html
       lang="en"
@@ -55,6 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1 pb-20">{children}</main>
           <NavBar />
         </PinGate>
+        <CookieNoticeBanner initiallyDismissed={cookieNoticeDismissed} />
       </body>
     </html>
   );

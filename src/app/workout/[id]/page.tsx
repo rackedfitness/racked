@@ -181,7 +181,7 @@ export default async function WorkoutDetailPage({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={workout.photo_url}
-          alt=""
+          alt={`Photo from ${workout.title} workout`}
           className="w-full rounded-lg border border-card-border object-cover"
         />
       )}

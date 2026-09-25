@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { reportContent } from "@/app/moderation/actions";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 export default function ReportModal({
   reportedUserId,
@@ -17,6 +18,8 @@ export default function ReportModal({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEscapeToClose(onClose);
+
   function submit() {
     setError(null);
     startTransition(async () => {
@@ -30,7 +33,13 @@ export default function ReportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={workoutId ? "Report workout" : "Report user"}
+    >
       <div
         className="w-full max-w-sm rounded-t-xl border border-card-border bg-card p-4 sm:rounded-xl"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}

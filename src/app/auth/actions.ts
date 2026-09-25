@@ -37,6 +37,12 @@ export async function signup(formData: FormData) {
   const displayName = String(formData.get("displayName") ?? "");
   const username = usernameFromEmail(email);
 
+  // Enforced server-side too, not just via the checkbox's `required` attribute
+  // client-side, since a raw request could otherwise skip it entirely.
+  if (formData.get("agreeToTerms") !== "on") {
+    redirect(`/signup?error=${encodeURIComponent("You must confirm you're 13+ and agree to the Terms and Privacy Policy.")}`);
+  }
+
   const supabase = await createClient();
   const origin = await getOrigin();
   const { error } = await supabase.auth.signUp({

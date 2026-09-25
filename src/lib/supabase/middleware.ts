@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   // users who don't have (or haven't made) an account yet.
   "/privacy",
   "/terms",
+  "/cookies",
 ];
 
 export async function updateSession(request: NextRequest) {

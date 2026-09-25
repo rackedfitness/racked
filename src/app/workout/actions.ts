@@ -276,16 +276,25 @@ export async function copyTemplate(templateId: string) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: template }, { data: templateExercises }] = await Promise.all([
-    supabase.from("workout_templates").select("name").eq("id", templateId).single(),
-    supabase
-      .from("workout_template_exercises")
-      .select("exercise_id, target_sets, target_reps")
-      .eq("template_id", templateId)
-      .order("order_index"),
-  ]);
+  // RLS already restricts this select to the caller's own templates or
+  // public ones, but the ownership check is added explicitly here too
+  // (defense in depth, matching renameTemplate/setTemplateVisibility below)
+  // rather than relying solely on RLS for something this consequential.
+  const { data: template } = await supabase
+    .from("workout_templates")
+    .select("name, user_id, is_public")
+    .eq("id", templateId)
+    .single();
 
-  if (!template) throw new Error("Plan not found.");
+  if (!template || (template.user_id !== user.id && !template.is_public)) {
+    throw new Error("Plan not found.");
+  }
+
+  const { data: templateExercises } = await supabase
+    .from("workout_template_exercises")
+    .select("exercise_id, target_sets, target_reps")
+    .eq("template_id", templateId)
+    .order("order_index");
 
   await createTemplateRows(supabase, user.id, {
     name: template.name,

@@ -22,6 +22,14 @@ export default function PrivacyPage() {
         </p>
 
         <section>
+          <h2 className="mb-1 font-semibold text-foreground">Who we are</h2>
+          <p className="text-muted">
+            Racked is operated by [add your business/legal name here], [add your business address here]. You can
+            reach us at [add your contact email here].
+          </p>
+        </section>
+
+        <section>
           <h2 className="mb-1 font-semibold text-foreground">Information we collect</h2>
           <ul className="list-disc pl-5 text-muted">
             <li>Account info: email, username, display name, avatar, and optionally sex/age (used only to calculate strength ranks)</li>
@@ -31,7 +39,13 @@ export default function PrivacyPage() {
             <li>If you use the mobile app and connect Apple Health / Google Health Connect, we write your workout duration and calories there — we don&rsquo;t read anything back from Health</li>
             <li>If you use the AI workout generator (Premium), the photo or equipment list you submit is sent to our AI provider to generate a workout</li>
             <li>Payment information if you subscribe to Premium — this is handled entirely by our payment processor; we never see or store your card details</li>
-            <li>Basic technical/usage data (e.g. login session cookies) needed to operate the app</li>
+            <li>
+              Basic technical/usage data (e.g. login session cookies) needed to operate the app — see our{" "}
+              <Link href="/cookies" className="underline">
+                Cookie Policy
+              </Link>{" "}
+              for the full list
+            </li>
           </ul>
         </section>
 

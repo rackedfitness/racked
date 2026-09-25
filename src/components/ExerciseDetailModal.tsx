@@ -4,6 +4,7 @@ import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import { EXERCISE_GUIDES } from "@/lib/exerciseGuides";
 import { getPose } from "@/components/ExercisePoseIcons";
 import { CloseIcon, ArrowRightIcon } from "@/components/UIIcons";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const CATEGORY_LABELS: Record<string, string> = {
   chest: "Chest",
@@ -29,8 +30,10 @@ export default function ExerciseDetailModal({
   const guide = EXERCISE_GUIDES[name];
   const pose = getPose(name);
 
+  useEscapeToClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-background">
+    <div className="fixed inset-0 z-40 flex flex-col bg-background" role="dialog" aria-modal="true" aria-label="Exercise guide">
       <div
         className="flex items-center gap-2 border-b border-card-border p-3"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
