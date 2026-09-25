@@ -5,6 +5,8 @@ import { EXERCISE_GUIDES } from "@/lib/exerciseGuides";
 import { getPose } from "@/components/ExercisePoseIcons";
 import { CloseIcon, ArrowRightIcon } from "@/components/UIIcons";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import ExerciseProgressChart from "@/components/ExerciseProgressChart";
+import type { WeightUnit } from "@/lib/units";
 
 const CATEGORY_LABELS: Record<string, string> = {
   chest: "Chest",
@@ -20,11 +22,15 @@ export default function ExerciseDetailModal({
   name,
   category,
   equipment,
+  exerciseId,
+  weightUnit = "kg",
   onClose,
 }: {
   name: string;
   category: string | null;
   equipment: string | null;
+  exerciseId: string;
+  weightUnit?: WeightUnit;
   onClose: () => void;
 }) {
   const guide = EXERCISE_GUIDES[name];
@@ -121,10 +127,14 @@ export default function ExerciseDetailModal({
             )}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-card-border p-4 text-center text-sm text-muted">
+          <p className="mb-5 rounded-lg border border-dashed border-card-border p-4 text-center text-sm text-muted">
             No guide written yet for this exercise.
           </p>
         )}
+
+        <div className="mt-5">
+          <ExerciseProgressChart exerciseId={exerciseId} weightUnit={weightUnit} />
+        </div>
       </div>
     </div>
   );

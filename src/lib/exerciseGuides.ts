@@ -832,4 +832,418 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     ],
     tips: ["Also known as \"Japanese walking\" — the interval structure is what makes it more effective than a steady stroll."],
   },
+  "Walking": {
+    steps: [
+      "Set a pace you can sustain — brisk enough to raise your heart rate, easy enough to hold a conversation.",
+      "Keep a tall posture and let your arms swing naturally.",
+    ],
+  },
+
+  "Dumbbell Shoulder Press": {
+    steps: [
+      "Sit or stand holding dumbbells at shoulder height, palms facing forward.",
+      "Press straight up until your arms lock out overhead.",
+      "Lower back to shoulder height with control.",
+    ],
+  },
+  "Shoulder Press Machine": {
+    steps: [
+      "Set the seat so the handles line up with your shoulders.",
+      "Press the handles up until your arms are extended.",
+      "Lower with control back to the start.",
+    ],
+  },
+  "Smith Machine Shoulder Press": {
+    steps: [
+      "Sit under the bar with it set at shoulder height, hands just outside shoulder width.",
+      "Unrack and press straight up to lock-out.",
+      "Lower back to shoulder height with control.",
+    ],
+  },
+  "Single-Arm Overhead Press": {
+    steps: [
+      "Hold a dumbbell at shoulder height, core braced against the one-sided load.",
+      "Press straight up until your arm locks out overhead.",
+      "Lower back to shoulder height with control, then repeat on the other side.",
+    ],
+    tips: ["Resist the urge to lean away from the weight — keep your torso stacked and upright."],
+  },
+  "Single-Arm Landmine Press": {
+    steps: [
+      "Load one end of a barbell into a landmine attachment, grip the other end at shoulder height with one hand.",
+      "Press up and slightly forward until your arm extends.",
+      "Lower back to the shoulder with control, then repeat on the other side.",
+    ],
+  },
+  "Lateral Raise Machine": {
+    steps: [
+      "Sit with the pads against the outside of your upper arms, elbows slightly bent.",
+      "Raise your arms out to the sides until roughly shoulder height.",
+      "Lower with control back to the start.",
+    ],
+  },
+  "Single-Arm Lateral Raise": {
+    steps: [
+      "Hold a dumbbell at your side, slight bend in the elbow.",
+      "Raise your arm out to the side until roughly shoulder height.",
+      "Lower with control, then repeat on the other side.",
+    ],
+  },
+  "Handstand Push Up": {
+    steps: [
+      "Kick up into a handstand against a wall, hands shoulder-width apart.",
+      "Lower your head toward the floor by bending your elbows.",
+      "Press back up to full lock-out.",
+    ],
+    tips: ["Build up with pike push-ups and wall holds first if a strict handstand push-up is out of reach."],
+  },
+  "Pike Push Up": {
+    steps: [
+      "Start in a downward-dog position, hips high, hands shoulder-width apart.",
+      "Lower the top of your head toward the floor by bending your elbows.",
+      "Press back up to the start.",
+    ],
+  },
+  "Wall Handstand Hold": {
+    steps: [
+      "Kick up into a handstand with your back or chest to the wall for support.",
+      "Hold the position, keeping your core braced and arms locked.",
+      "Come down with control when your form starts to break.",
+    ],
+  },
+
+  "Reverse Grip Bench Press": {
+    steps: [
+      "Grip the bar with an underhand (supinated) grip, just outside shoulder width.",
+      "Unrack and lower to your upper chest with control.",
+      "Press back up to full lock-out.",
+    ],
+    tips: ["Shifts more emphasis onto the upper chest and triceps — start lighter than your regular bench press."],
+  },
+  "Smith Machine Bench Press": {
+    steps: [
+      "Lie on the bench under the bar, feet flat on the floor.",
+      "Unrack and lower it to your mid-chest with control.",
+      "Press back up to full lock-out.",
+    ],
+  },
+  "Smith Machine Incline Bench Press": {
+    steps: [
+      "Set the bench to a 30-45° incline under the bar.",
+      "Unrack and lower it to your upper chest.",
+      "Press back up to full lock-out.",
+    ],
+  },
+  "Convergent Chest Press": {
+    steps: [
+      "Sit with your back against the pad, gripping a handle in each hand.",
+      "Press the handles forward — they'll converge together at full extension.",
+      "Return with control, letting your chest stretch at the back.",
+    ],
+  },
+  "Single-Arm Cable Chest Press": {
+    steps: [
+      "Set a cable at chest height behind you, staggered stance for stability.",
+      "Press the handle forward until your arm extends, resisting rotation in your torso.",
+      "Return with control, then repeat on the other side.",
+    ],
+  },
+  "Archer Push Up": {
+    steps: [
+      "Start in a wide push-up position, hands well outside shoulder width.",
+      "Lower toward one hand, keeping the other arm straight out to the side.",
+      "Press back up and repeat toward the other side.",
+    ],
+    tips: ["A progression toward the one-arm push-up — most of your bodyweight shifts onto the bending arm."],
+  },
+  "Planche Push Up": {
+    steps: [
+      "Start in a push-up position with your hands shifted back toward your hips and shoulders rounded forward.",
+      "Lower with control, keeping your body in a straight line.",
+      "Press back up to the start.",
+    ],
+    tips: ["An advanced, straight-arm-strength move — most lifters need months of lean/tuck-planche work first."],
+  },
+
+  "Reverse Grip Lat Pulldown": {
+    steps: [
+      "Grip the bar with an underhand grip, hands roughly shoulder-width.",
+      "Pull the bar down to your upper chest, driving your elbows down and back.",
+      "Let it rise back with control to a full stretch.",
+    ],
+  },
+  "Single-Arm Lat Pulldown": {
+    steps: [
+      "Attach a single handle to a high cable, kneel or sit facing it.",
+      "Pull the handle down toward your hip, driving your elbow down and back.",
+      "Let it rise back with control, then repeat on the other side.",
+    ],
+  },
+  "Single-Arm Cable Row": {
+    steps: [
+      "Sit facing a low cable, grip the handle with one hand, arm extended.",
+      "Row it to your hip, driving your elbow back and squeezing your back.",
+      "Extend back out with control, then repeat on the other side.",
+    ],
+  },
+  "Smith Machine Row": {
+    steps: [
+      "Set the bar low, hinge forward at the hips with a flat back.",
+      "Pull the bar to your lower ribcage, driving your elbows back.",
+      "Lower with control without rounding your back.",
+    ],
+  },
+  "Assisted Pull-Up Machine": {
+    steps: [
+      "Kneel or stand on the platform, set the counterweight to offset the amount of assistance you need.",
+      "Pull yourself up until your chin clears the bar.",
+      "Lower back to a full hang with control.",
+    ],
+    tips: ["Dial the assistance down over time — less counterweight means you're doing more of the work yourself."],
+  },
+  "Keenan Flaps": {
+    steps: [
+      "Set a cable low, hinge forward slightly with a flat back, arm extended toward the cable.",
+      "Sweep your arm up and back in a wide arc, squeezing your shoulder blade at the top.",
+      "Return with control to the start, then repeat on the other side.",
+    ],
+    tips: ["House variation of a cable rear-delt/upper-back sweep — same cues, your own name for it."],
+  },
+  "Archer Pull Up": {
+    steps: [
+      "Hang from the bar with a wide grip.",
+      "Pull up toward one hand, keeping the other arm straight.",
+      "Lower with control and repeat toward the other side.",
+    ],
+  },
+  "Ring Row": {
+    steps: [
+      "Set rings at hip height, lean back holding them with arms extended, feet planted, body straight.",
+      "Pull your chest up to the rings, squeezing your shoulder blades together.",
+      "Lower back to a full arm extension with control.",
+    ],
+    tips: ["Walk your feet forward to make it harder, or back to make it easier."],
+  },
+  "Muscle Up": {
+    steps: [
+      "Hang from the bar or rings with a false grip.",
+      "Pull explosively, driving your chest toward the bar as you transition your wrists over the top.",
+      "Press out to lock-out above the bar, then reverse the sequence to lower back down.",
+    ],
+    tips: ["The transition — not the pull — is usually the hard part. Practice it separately if you're stuck."],
+  },
+  "Weighted Muscle Up": {
+    steps: [
+      "Attach weight via a dip belt, then perform a muscle up as normal.",
+      "Pull explosively through the transition to full lock-out above the bar.",
+      "Reverse the sequence with control on the way down.",
+    ],
+  },
+  "Weighted Pull Up": {
+    steps: [
+      "Attach weight via a dip belt or hold a dumbbell between your feet.",
+      "Pull up from a dead hang until your chin clears the bar.",
+      "Lower back to a full hang with control.",
+    ],
+  },
+  "Weighted Chin Up": {
+    steps: [
+      "Attach weight via a dip belt or hold a dumbbell between your feet, underhand grip on the bar.",
+      "Pull up until your chin clears the bar.",
+      "Lower back to a full hang with control.",
+    ],
+  },
+  "Front Lever": {
+    steps: [
+      "Hang from the bar, then pull your straight body up until it's parallel to the floor, facing up.",
+      "Hold the position, keeping your body rigid and hollow.",
+      "Lower back to a hang with control.",
+    ],
+    tips: ["Tuck or advanced-tuck variations build toward a full lever — very few lifters start with the full version."],
+  },
+  "Back Lever": {
+    steps: [
+      "From a hang, invert and lower your straight body until it's parallel to the floor, facing down.",
+      "Hold the position, keeping your body rigid.",
+      "Pull back up to the hang with control.",
+    ],
+  },
+  "Skin the Cat": {
+    steps: [
+      "Hang from rings or a bar with a false grip.",
+      "Tuck your knees and roll your hips through your arms, lowering into an inverted hang.",
+      "Reverse the motion back to the start with control.",
+    ],
+  },
+
+  "Reverse Grip Barbell Curl": {
+    steps: [
+      "Hold the bar with an overhand (pronated) grip, shoulder-width.",
+      "Curl it up toward your chest, elbows fixed at your sides.",
+      "Lower with control.",
+    ],
+    tips: ["Hits the forearms and brachialis harder than a regular curl — expect to use less weight."],
+  },
+  "Reverse Grip Cable Curl": {
+    steps: [
+      "Stand facing a low cable, grip the bar with an overhand grip.",
+      "Curl up toward your chest, elbows fixed at your sides.",
+      "Lower with control.",
+    ],
+  },
+  "Cable Hammer Curl": {
+    steps: [
+      "Stand facing a low cable with a rope attachment, palms facing each other.",
+      "Curl up keeping that neutral grip, elbows pinned to your sides.",
+      "Lower with control.",
+    ],
+  },
+  "Bayesian Curl": {
+    steps: [
+      "Stand facing away from a low cable, arm extended behind your torso.",
+      "Curl the handle up toward your shoulder without letting your elbow drift forward.",
+      "Lower with control back to the stretched position behind you.",
+    ],
+    tips: ["The behind-the-body start position keeps constant tension on the bicep through the full stretch."],
+  },
+  "Zottman Curl": {
+    steps: [
+      "Curl dumbbells up with palms facing forward, as in a normal bicep curl.",
+      "At the top, rotate your wrists so your palms face down.",
+      "Lower with that reversed grip, then rotate back to forward at the bottom.",
+    ],
+    tips: ["The palms-down lowering phase is what trains the forearms — don't skip it by curling normally both ways."],
+  },
+  "Wrist Curl": {
+    steps: [
+      "Rest your forearms on a bench or your thighs, palms up, holding a bar or dumbbells.",
+      "Let the weight roll down to your fingertips, then curl it back up by flexing your wrists.",
+      "Keep the motion slow and controlled.",
+    ],
+  },
+  "Reverse Wrist Curl": {
+    steps: [
+      "Rest your forearms on a bench or your thighs, palms down, holding a bar or dumbbells.",
+      "Lower the weight by letting your wrists bend down, then extend them back up.",
+      "Keep the motion slow and controlled.",
+    ],
+  },
+  "Single-Arm Cable Curl": {
+    steps: [
+      "Stand facing a low cable, grip the handle with an underhand grip.",
+      "Curl up toward your shoulder, elbow fixed at your side.",
+      "Lower with control, then repeat on the other side.",
+    ],
+  },
+  "Single-Arm Tricep Pushdown": {
+    steps: [
+      "Stand facing a high cable with a single handle, elbow pinned to your side.",
+      "Push down until your arm fully extends.",
+      "Return with control, then repeat on the other side.",
+    ],
+  },
+  "Ring Dip": {
+    steps: [
+      "Support yourself on rings, arms locked out, rings turned out slightly.",
+      "Lower until your shoulders dip below your elbows, controlling the rings' movement.",
+      "Press back up to lock-out.",
+    ],
+    tips: ["The instability of the rings makes this considerably harder than a fixed-bar dip — start with a small range of motion."],
+  },
+  "Weighted Ring Dip": {
+    steps: [
+      "Attach weight via a dip belt, then support yourself on rings, arms locked out.",
+      "Lower until your shoulders dip below your elbows.",
+      "Press back up to lock-out.",
+    ],
+  },
+  "Weighted Dip": {
+    steps: [
+      "Attach weight via a dip belt, support yourself on the bars, torso upright for triceps emphasis.",
+      "Lower until your elbows reach about 90°.",
+      "Press back up to lock-out.",
+    ],
+  },
+
+  "Ab Crunch Machine": {
+    steps: [
+      "Sit with your chest against the pad, gripping the handles.",
+      "Crunch forward, bringing your chest toward your hips.",
+      "Return with control, keeping tension on your abs.",
+    ],
+  },
+  "L-Sit": {
+    steps: [
+      "Support yourself on parallettes, a bench, or the floor, arms locked out.",
+      "Raise your straight legs up until they're parallel to the floor, forming an L shape with your torso.",
+      "Hold the position, keeping your shoulders depressed and core braced.",
+    ],
+    tips: ["Tuck one or both knees in toward your chest as a regression while you build the strength to hold it straight-legged."],
+  },
+  "Dragon Flag": {
+    steps: [
+      "Lie on a bench, grip behind your head for support, shoulders as the only contact point.",
+      "Raise your straight body up off the bench, then lower it as a single rigid unit.",
+      "Stop just before your lower back would arch, then raise back up.",
+    ],
+    tips: ["Bend your knees to reduce the lever length while you build up to the full straight-body version."],
+  },
+  "Suitcase Carry": {
+    steps: [
+      "Pick up a heavy dumbbell in one hand, standing tall.",
+      "Walk for distance or time, resisting the pull to lean toward the loaded side.",
+      "Switch sides and repeat.",
+    ],
+    tips: ["The single-sided load is what makes this an anti-lateral-flexion core exercise, not just a grip/carry one."],
+  },
+
+  "Single-Leg Romanian Deadlift": {
+    steps: [
+      "Stand on one leg holding a dumbbell, soft knee.",
+      "Hinge forward, extending your free leg back for balance, until your torso is roughly parallel to the floor.",
+      "Drive your hips forward back to standing, then repeat on the other side.",
+    ],
+  },
+  "Single-Leg Press": {
+    steps: [
+      "Sit in the leg press with one foot centered on the platform.",
+      "Lower the platform until your knee reaches about 90°.",
+      "Press back up without locking your knee out hard, then repeat on the other side.",
+    ],
+  },
+  "Single-Leg Calf Raise": {
+    steps: [
+      "Stand on one foot on a raised platform, ball of your foot on the edge.",
+      "Rise up onto your toes as high as possible.",
+      "Lower slowly below the platform for a full stretch, then repeat on the other side.",
+    ],
+  },
+  "Hip Abductor Machine": {
+    steps: [
+      "Sit in the machine with the pads against the outside of your knees.",
+      "Push your legs outward against the resistance.",
+      "Return with control.",
+    ],
+  },
+  "Hip Adductor Machine": {
+    steps: [
+      "Sit in the machine with the pads against the inside of your knees.",
+      "Squeeze your legs together against the resistance.",
+      "Return with control.",
+    ],
+  },
+  "Smith Machine Squat": {
+    steps: [
+      "Set the bar across your upper back, feet slightly forward of the bar path.",
+      "Squat down until your hip crease passes below your knee.",
+      "Drive back up to standing.",
+    ],
+  },
+  "Smith Machine Lunge": {
+    steps: [
+      "Position the bar across your upper back, one foot forward, one back.",
+      "Lower your back knee toward the floor.",
+      "Drive through your front foot back to standing.",
+    ],
+  },
 };

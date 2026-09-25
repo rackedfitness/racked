@@ -856,6 +856,8 @@ export default function WorkoutBuilder({
               name={detailEx.name}
               category={detailEx.category}
               equipment={detailEx.equipment}
+              exerciseId={detailEx.exerciseId}
+              weightUnit={weightUnit}
               onClose={() => setDetailExerciseId(null)}
             />
           );

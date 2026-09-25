@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { CloseIcon } from "@/components/UIIcons";
+import QuickGymRate from "@/components/QuickGymRate";
 
-export type SelectedGym = { name: string; address: string | null; placeId: string | null };
+export type SelectedGym = { name: string; address: string | null; placeId: string | null; lat?: number | null; lng?: number | null };
 
 export default function GymPicker({
   value,
@@ -47,22 +48,33 @@ export default function GymPicker({
 
   if (value) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-md border border-card-border bg-background px-3 py-2 text-sm">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span aria-hidden>📍</span>
-          <span className="truncate">
-            <span className="font-medium">{value.name}</span>
-            {value.address && <span className="text-muted"> · {value.address}</span>}
+      <div className="flex flex-col gap-2 rounded-md border border-card-border bg-background px-3 py-2">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span aria-hidden>📍</span>
+            <span className="truncate">
+              <span className="font-medium">{value.name}</span>
+              {value.address && <span className="text-muted"> · {value.address}</span>}
+            </span>
           </span>
-        </span>
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          aria-label="Remove gym"
-          className="shrink-0 text-muted active:text-foreground"
-        >
-          <CloseIcon size={14} />
-        </button>
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            aria-label="Remove gym"
+            className="shrink-0 text-muted active:text-foreground"
+          >
+            <CloseIcon size={14} />
+          </button>
+        </div>
+        {value.placeId && (
+          <QuickGymRate
+            placeId={value.placeId}
+            gymName={value.name}
+            gymAddress={value.address}
+            lat={value.lat ?? null}
+            lng={value.lng ?? null}
+          />
+        )}
       </div>
     );
   }
