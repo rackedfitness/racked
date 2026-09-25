@@ -54,6 +54,15 @@ export function UsersIcon({ active }: IconProps) {
   );
 }
 
+export function MapPinIcon({ active }: IconProps) {
+  return (
+    <svg {...common} fill="none">
+      <path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" fill={active ? "currentColor" : "none"} />
+      <circle cx="12" cy="9.5" r="2.25" fill={active ? "var(--background)" : "none"} />
+    </svg>
+  );
+}
+
 export function UserIcon({ active }: IconProps) {
   return (
     <svg {...common} fill="none">

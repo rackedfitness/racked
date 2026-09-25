@@ -25,7 +25,7 @@ export default async function FeedPage({
       : supabase
           .from("workouts")
           .select(
-            "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, pr_count, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
+            "id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, gym_place_id, pr_count, profiles!workouts_user_id_fkey(username, display_name, avatar_url), workout_exercises(count)"
           )
           .not("finished_at", "is", null)
           .eq("is_public", true)
@@ -192,11 +192,6 @@ export default async function FeedPage({
                       </span>
                     )}
                   </div>
-                  {w.gym_name && (
-                    <p className="mt-0.5 truncate text-xs text-muted">
-                      <span aria-hidden>📍</span> {w.gym_name}
-                    </p>
-                  )}
                 </div>
 
                 {w.photo_url && (
@@ -210,6 +205,21 @@ export default async function FeedPage({
 
                 {w.notes && <p className="text-sm italic text-muted">&ldquo;{w.notes}&rdquo;</p>}
               </Link>
+
+              {w.gym_name && (
+                w.gym_place_id ? (
+                  <Link
+                    href={`/gyms/detail?placeId=${encodeURIComponent(w.gym_place_id)}&name=${encodeURIComponent(w.gym_name)}`}
+                    className="-mt-1 truncate text-xs text-muted underline-offset-2 hover:underline"
+                  >
+                    <span aria-hidden>📍</span> {w.gym_name}
+                  </Link>
+                ) : (
+                  <p className="-mt-1 truncate text-xs text-muted">
+                    <span aria-hidden>📍</span> {w.gym_name}
+                  </p>
+                )
+              )}
 
               <div className="flex items-center gap-4 border-t border-card-border pt-3">
                 <form action={toggleLike.bind(null, w.id)}>

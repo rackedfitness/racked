@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, DumbbellIcon, TrendingUpIcon, UsersIcon, UserIcon } from "@/components/NavIcons";
+import { HomeIcon, DumbbellIcon, TrendingUpIcon, UsersIcon, MapPinIcon, UserIcon } from "@/components/NavIcons";
 
 const TABS = (username: string | null) => [
   { href: "/", label: "Home", Icon: HomeIcon },
   { href: "/workouts", label: "Workouts", Icon: DumbbellIcon },
   { href: "/progress", label: "Progress", Icon: TrendingUpIcon },
   { href: "/feed", label: "Feed", Icon: UsersIcon },
+  { href: "/gyms", label: "Gyms", Icon: MapPinIcon },
   { href: username ? `/profile/${username}` : "/login", label: "Profile", Icon: UserIcon },
 ];
 

@@ -12,6 +12,8 @@ type LocationIqResult = {
   display_place?: string;
   display_name?: string;
   display_address?: string;
+  lat?: string;
+  lon?: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -57,6 +59,8 @@ export async function GET(request: NextRequest) {
       name: r.display_place ?? r.display_name?.split(",")[0] ?? "Gym",
       address: r.display_address ?? null,
       placeId: r.place_id ?? null,
+      lat: r.lat ? Number(r.lat) : null,
+      lng: r.lon ? Number(r.lon) : null,
     }));
     return NextResponse.json({ results });
   } catch {

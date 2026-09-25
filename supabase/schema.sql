@@ -925,6 +925,11 @@ values
   ('Smith Machine Lunge', 'legs', 'machine')
 on conflict do nothing;
 
+insert into public.exercises (name, category, equipment)
+values
+  ('Dumbbell Shoulder Press', 'shoulders', 'dumbbell')
+on conflict do nothing;
+
 -- =========================================
 -- storage: profile picture uploads
 -- =========================================
@@ -1223,3 +1228,55 @@ end;
 $$;
 
 grant execute on function public.admin_delete_comment(uuid) to authenticated;
+
+-- =========================================
+-- gym reviews (travel-companion feature: find/rate gyms, incl. hotel gyms,
+-- anywhere via the same LocationIQ place search used for workout gym-tagging)
+-- =========================================
+create table if not exists public.gym_reviews (
+  id uuid primary key default gen_random_uuid(),
+  place_id text not null,
+  gym_name text not null,
+  gym_address text,
+  lat double precision,
+  lng double precision,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  rating int not null check (rating between 1 and 5),
+  body text,
+  -- short fixed vocabulary (squat_rack, hotel_gym, 24_hour, ...) rather than
+  -- free-tagging, so aggregate counts on the gym page stay meaningful
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- one review per user per gym; editing overwrites it (upsert) rather than
+  -- stacking duplicate reviews from the same person
+  unique (place_id, user_id)
+);
+
+alter table public.gym_reviews enable row level security;
+
+drop policy if exists "gym reviews are viewable by any authenticated user" on public.gym_reviews;
+create policy "gym reviews are viewable by any authenticated user"
+  on public.gym_reviews for select
+  to authenticated
+  using (true);
+
+drop policy if exists "users can insert their own gym reviews" on public.gym_reviews;
+create policy "users can insert their own gym reviews"
+  on public.gym_reviews for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "users can update their own gym reviews" on public.gym_reviews;
+create policy "users can update their own gym reviews"
+  on public.gym_reviews for update
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "users can delete their own gym reviews" on public.gym_reviews;
+create policy "users can delete their own gym reviews"
+  on public.gym_reviews for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+create index if not exists gym_reviews_place_idx on public.gym_reviews (place_id);

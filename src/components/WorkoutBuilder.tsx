@@ -205,6 +205,22 @@ export default function WorkoutBuilder({
     active: boolean;
   } | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Kept in sync with `selected` so the self-perpetuating auto-scroll rAF
+  // loop below (which calls itself via requestAnimationFrame rather than
+  // being re-triggered by React) always reorders against current data
+  // instead of the stale closure from whichever render scheduled it.
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+  const autoScrollSpeedRef = useRef(0);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const lastPointerYRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      if (autoScrollFrameRef.current !== null) cancelAnimationFrame(autoScrollFrameRef.current);
+    };
+  }, []);
   const [saveAsPlan, setSaveAsPlan] = useState(false);
   const [planName, setPlanName] = useState("");
   const [confirmedSwapIds, setConfirmedSwapIds] = useState<Set<string>>(new Set());
@@ -352,6 +368,89 @@ export default function WorkoutBuilder({
     dragStateRef.current = { exerciseId, startY, timer, active: false };
   }
 
+  // Shared by the pointermove handler below and by the auto-scroll loop
+  // (which needs to keep re-checking crossed neighbors even while the finger
+  // itself is holding still at the screen edge). Reads selectedRef rather
+  // than `selected` directly so the auto-scroll loop — which re-schedules
+  // itself via requestAnimationFrame instead of being re-invoked by React —
+  // never acts on a stale array from whichever render it was scheduled in.
+  function reorderForClientY(clientY: number) {
+    const ds = dragStateRef.current;
+    if (!ds) return;
+    const current = selectedRef.current;
+
+    const draggedIdx = current.findIndex((x) => x.exerciseId === ds.exerciseId);
+    if (draggedIdx === -1) return;
+
+    let newIndex = 0;
+    current.forEach((ex, idx) => {
+      if (idx === draggedIdx) return;
+      const el = rowRefs.current[ex.exerciseId];
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (clientY > rect.top + rect.height / 2) newIndex++;
+    });
+
+    if (newIndex !== draggedIdx) {
+      const arr = [...current];
+      const [moved] = arr.splice(draggedIdx, 1);
+      arr.splice(newIndex, 0, moved);
+      selectedRef.current = arr;
+      setSelected(arr);
+      ds.startY = clientY;
+      setDragOffsetY(0);
+    }
+  }
+
+  // Auto-scrolls the page while a drag is held near the top/bottom edge of
+  // the screen, so reordering works past whatever's currently on-screen —
+  // without it, dragging down a long exercise list just stalls at the last
+  // visible row. Speed ramps up the deeper into the edge zone the pointer
+  // is. Keeps the dragged row visually pinned under the finger by adding
+  // back whatever the scroll just moved it by (see the transform in the
+  // render below — it's a translateY off the row's normal flow position,
+  // which itself shifts with scroll, so the offset has to compensate).
+  const AUTO_SCROLL_EDGE = 90;
+  const AUTO_SCROLL_MAX_SPEED = 16;
+
+  function autoScrollStep() {
+    autoScrollFrameRef.current = null;
+    const speed = autoScrollSpeedRef.current;
+    if (speed === 0 || !dragStateRef.current?.active) return;
+
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const nextScroll = Math.min(Math.max(window.scrollY + speed, 0), maxScroll);
+    const actualDelta = nextScroll - window.scrollY;
+    if (actualDelta !== 0) {
+      window.scrollTo(0, nextScroll);
+      setDragOffsetY((prev) => prev + actualDelta);
+      reorderForClientY(lastPointerYRef.current);
+    }
+
+    autoScrollFrameRef.current = requestAnimationFrame(autoScrollStep);
+  }
+
+  function updateAutoScroll(clientY: number) {
+    let speed = 0;
+    if (clientY < AUTO_SCROLL_EDGE) {
+      speed = -AUTO_SCROLL_MAX_SPEED * ((AUTO_SCROLL_EDGE - clientY) / AUTO_SCROLL_EDGE);
+    } else if (clientY > window.innerHeight - AUTO_SCROLL_EDGE) {
+      speed = AUTO_SCROLL_MAX_SPEED * ((clientY - (window.innerHeight - AUTO_SCROLL_EDGE)) / AUTO_SCROLL_EDGE);
+    }
+    autoScrollSpeedRef.current = speed;
+    if (speed !== 0 && autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = requestAnimationFrame(autoScrollStep);
+    }
+  }
+
+  function stopAutoScroll() {
+    autoScrollSpeedRef.current = 0;
+    if (autoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }
+
   function handleGripPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     const ds = dragStateRef.current;
     if (!ds) return;
@@ -365,30 +464,10 @@ export default function WorkoutBuilder({
     }
 
     e.preventDefault();
+    lastPointerYRef.current = e.clientY;
     setDragOffsetY(e.clientY - ds.startY);
-
-    const draggedIdx = selected.findIndex((x) => x.exerciseId === ds.exerciseId);
-    if (draggedIdx === -1) return;
-
-    let newIndex = 0;
-    selected.forEach((ex, idx) => {
-      if (idx === draggedIdx) return;
-      const el = rowRefs.current[ex.exerciseId];
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      if (e.clientY > rect.top + rect.height / 2) newIndex++;
-    });
-
-    if (newIndex !== draggedIdx) {
-      setSelected((prev) => {
-        const arr = [...prev];
-        const [moved] = arr.splice(draggedIdx, 1);
-        arr.splice(newIndex, 0, moved);
-        return arr;
-      });
-      ds.startY = e.clientY;
-      setDragOffsetY(0);
-    }
+    reorderForClientY(e.clientY);
+    updateAutoScroll(e.clientY);
   }
 
   function handleGripPointerEnd() {
@@ -397,6 +476,7 @@ export default function WorkoutBuilder({
     dragStateRef.current = null;
     setDraggingId(null);
     setDragOffsetY(0);
+    stopAutoScroll();
   }
 
   // Both only depend on `selected`, not on the once-a-second `nowTs` tick —

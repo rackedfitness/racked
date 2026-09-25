@@ -33,7 +33,7 @@ export default async function WorkoutDetailPage({
     supabase.auth.getUser().then((r) => ({ data: r.data.user })),
     supabase
       .from("workouts")
-      .select("id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, gym_address")
+      .select("id, title, notes, photo_url, started_at, finished_at, user_id, gym_name, gym_address, gym_place_id")
       .eq("id", id)
       .single(),
     getWeightUnit(),
@@ -164,9 +164,20 @@ export default async function WorkoutDetailPage({
             )}
           </div>
           {workout.gym_name && (
-            <p className="mt-1 truncate text-xs text-muted">
-              <span aria-hidden>📍</span> {workout.gym_name}
-            </p>
+            workout.gym_place_id ? (
+              <Link
+                href={`/gyms/detail?placeId=${encodeURIComponent(workout.gym_place_id)}&name=${encodeURIComponent(workout.gym_name)}${
+                  workout.gym_address ? `&address=${encodeURIComponent(workout.gym_address)}` : ""
+                }`}
+                className="mt-1 block truncate text-xs text-muted underline-offset-2 hover:underline"
+              >
+                <span aria-hidden>📍</span> {workout.gym_name}
+              </Link>
+            ) : (
+              <p className="mt-1 truncate text-xs text-muted">
+                <span aria-hidden>📍</span> {workout.gym_name}
+              </p>
+            )
           )}
         </div>
         <div className="shrink-0 text-right">
