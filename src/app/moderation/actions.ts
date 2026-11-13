@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { assertUuid } from "@/lib/validation";
 
 export async function blockUser(userId: string) {
   const supabase = await createClient();
@@ -10,14 +11,13 @@ export async function blockUser(userId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  assertUuid(userId, "user");
   if (userId === user.id) return;
 
+  // A database trigger (on_block_created) also ends any follow in either
+  // direction — it has to live there, since RLS wouldn't let this action
+  // delete the other person's follow of you.
   await supabase.from("blocks").insert({ blocker_id: user.id, blocked_id: userId });
-  // A block should also end any existing follow relationship in either
-  // direction — otherwise a blocked user's workouts could still surface via
-  // "people you follow"-scoped views.
-  await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", userId);
-  await supabase.from("follows").delete().eq("follower_id", userId).eq("following_id", user.id);
 
   revalidatePath("/feed");
   revalidatePath("/profile/[username]", "page");
@@ -29,6 +29,7 @@ export async function unblockUser(userId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  assertUuid(userId, "user");
 
   await supabase.from("blocks").delete().eq("blocker_id", user.id).eq("blocked_id", userId);
 
@@ -48,8 +49,11 @@ export async function reportContent(input: {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const reason = input.reason.trim();
+  const reason = input.reason.trim().slice(0, 1000);
   if (!reason) throw new Error("Add a reason for the report.");
+  if (input.reportedUserId) assertUuid(input.reportedUserId, "user");
+  if (input.workoutId) assertUuid(input.workoutId, "workout");
+  if (input.commentId) assertUuid(input.commentId, "comment");
 
   const { error } = await supabase.from("reports").insert({
     reporter_id: user.id,

@@ -2,12 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getMyPrivateProfile } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 import { stripe } from "@/lib/stripe";
 
+// Uploaded files live in public storage buckets that aren't touched by the
+// database's on-delete-cascade chain, so they have to be removed explicitly
+// or a deleted user's photos stay reachable by URL forever.
+async function removeUserFolder(bucket: "avatars" | "workout-photos", userId: string) {
+  const admin = createServiceRoleClient();
+  for (;;) {
+    const { data: files, error } = await admin.storage.from(bucket).list(userId, { limit: 1000 });
+    if (error || !files || files.length === 0) return;
+    const { error: removeError } = await admin.storage.from(bucket).remove(files.map((f) => `${userId}/${f.name}`));
+    if (removeError || files.length < 1000) return;
+  }
+}
+
 export async function updateProfile(formData: FormData) {
-  const displayName = String(formData.get("displayName") ?? "");
+  const displayName = String(formData.get("displayName") ?? "").trim().slice(0, 50);
   const email = String(formData.get("email") ?? "");
   const sex = String(formData.get("sex") ?? "");
   const ageRaw = String(formData.get("age") ?? "");
@@ -60,7 +73,11 @@ export async function exportMyData() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const [{ data: publicProfile }, privateProfile] = await Promise.all([
+    supabase.from("profiles").select("id, username, display_name, avatar_url, weight_unit, created_at").eq("id", user.id).single(),
+    getMyPrivateProfile(),
+  ]);
+  const profile = { ...publicProfile, sex: privateProfile.sex, age: privateProfile.age };
   const { data: workouts } = await supabase
     .from("workouts")
     .select("*, workout_exercises(*, workout_sets(*))")
@@ -83,6 +100,7 @@ export async function deleteMyData() {
   await supabase.from("workouts").delete().eq("user_id", user.id);
   await supabase.from("workout_templates").delete().eq("user_id", user.id);
   await supabase.from("body_measurements").delete().eq("user_id", user.id);
+  await removeUserFolder("workout-photos", user.id);
 
   revalidatePath("/");
   redirect("/");
@@ -116,6 +134,8 @@ export async function deleteMyAccount() {
       // don't let a Stripe hiccup block the account deletion itself.
     }
   }
+
+  await Promise.all([removeUserFolder("avatars", user.id), removeUserFolder("workout-photos", user.id)]);
 
   const adminClient = createServiceRoleClient();
   const { error } = await adminClient.auth.admin.deleteUser(user.id);

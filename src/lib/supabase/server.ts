@@ -43,6 +43,25 @@ export const getUser = cache(async () => {
   return user;
 });
 
+export type PrivateProfile = { sex: "male" | "female" | null; age: number | null; isAdmin: boolean };
+
+// sex/age/is_admin aren't readable through the profiles table (column
+// privileges hide them from everyone, including yourself) — this RPC only
+// ever returns the caller's own row. Falls back to empty values on error so
+// pages still render if the function is briefly missing mid-deploy.
+export const getMyPrivateProfile = cache(async (): Promise<PrivateProfile> => {
+  const user = await getUser();
+  if (!user) return { sex: null, age: null, isAdmin: false };
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("my_private_profile").maybeSingle();
+  const row = data as { sex: string | null; age: number | null; is_admin: boolean } | null;
+  return {
+    sex: row?.sex === "male" || row?.sex === "female" ? row.sex : null,
+    age: row?.age ?? null,
+    isAdmin: Boolean(row?.is_admin),
+  };
+});
+
 // The viewer's own display-unit preference — used to render weights
 // wherever they're shown, regardless of whose data it is. Cached the same
 // way as getUser() since most pages that fetch it also fetch the user.

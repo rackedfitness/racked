@@ -7,6 +7,7 @@ import { saveWorkout, saveTemplate, type ExerciseInput, type SetInput } from "@/
 import { estimateOneRepMax, formatDuration } from "@/lib/stats";
 import { playTapSound, playPRSound, playRestCompleteSound } from "@/lib/sound";
 import { createClient } from "@/lib/supabase/client";
+import { prepareImageForUpload } from "@/lib/imageResize";
 import confetti from "canvas-confetti";
 import ExercisePicker from "@/components/ExercisePicker";
 import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
@@ -676,11 +677,13 @@ export default function WorkoutBuilder({
         let photoUrl: string | null = null;
         if (photoFile && userId) {
           const supabase = createClient();
-          const ext = photoFile.name.split(".").pop()?.toLowerCase() || "jpg";
-          const path = `${userId}/${Date.now()}.${ext}`;
+          // re-encoded to strip GPS/EXIF metadata; random name so a photo's
+          // URL can't be guessed from the user id + a timestamp
+          const image = await prepareImageForUpload(photoFile);
+          const path = `${userId}/${crypto.randomUUID()}.jpg`;
           const { error: uploadError } = await supabase.storage
             .from("workout-photos")
-            .upload(path, photoFile, { cacheControl: "3600" });
+            .upload(path, image, { cacheControl: "3600", contentType: "image/jpeg" });
           if (uploadError) throw new Error(uploadError.message);
           photoUrl = supabase.storage.from("workout-photos").getPublicUrl(path).data.publicUrl;
         }

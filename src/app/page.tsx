@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, getMyPrivateProfile } from "@/lib/supabase/server";
 import type { WeightUnit } from "@/lib/units";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import WeeklyRecapCard from "@/components/WeeklyRecapCard";
@@ -42,10 +42,11 @@ export default async function DashboardPage({
     { data: recentWorkouts },
     { count: followingCount },
     cookieStore,
+    privateProfile,
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, username, avatar_url, sex, age, weight_unit")
+      .select("display_name, username, avatar_url, weight_unit")
       .eq("id", user!.id)
       .single(),
     supabase
@@ -70,6 +71,7 @@ export default async function DashboardPage({
       .gte("started_at", bodyMapCutoff.toISOString()),
     supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user!.id),
     cookies(),
+    getMyPrivateProfile(),
   ]);
 
   const muscleCounts = categorySetCounts(recentWorkouts ?? []);
@@ -115,7 +117,7 @@ export default async function DashboardPage({
 
   const onboardingItems = [
     { label: "Log your first workout", done: workouts.length > 0, href: "/workout/new" },
-    { label: "Add your sex and age for ranks", done: Boolean(profile?.sex && profile?.age), href: "/settings" },
+    { label: "Add your sex and age for ranks", done: Boolean(privateProfile.sex && privateProfile.age), href: "/settings" },
     { label: "Follow someone", done: (followingCount ?? 0) > 0, href: "/people" },
   ];
   const showOnboarding = onboardingItems.some((i) => !i.done);

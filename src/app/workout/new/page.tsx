@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getMyPrivateProfile } from "@/lib/supabase/server";
 import WorkoutBuilder from "@/components/WorkoutBuilder";
 import { computeBestEverMap, computeLastWeightMap, type WorkoutLite } from "@/lib/stats";
 import type { Sex } from "@/lib/rankSystem";
@@ -20,7 +20,7 @@ export default async function NewWorkoutPage({
   // Everything below only needs user.id (known now) or templateId (known
   // from searchParams) — none of it depends on any of the others, so it all
   // fires in one round trip instead of five sequential ones.
-  const [{ data: rawWorkouts }, { data: latestMeasurement }, { data: profile }, template] = await Promise.all([
+  const [{ data: rawWorkouts }, { data: latestMeasurement }, { data: profile }, privateProfile, template] = await Promise.all([
     supabase
       .from("workouts")
       .select(
@@ -37,7 +37,8 @@ export default async function NewWorkoutPage({
       .order("logged_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("profiles").select("age, sex, weight_unit").eq("id", user!.id).single(),
+    supabase.from("profiles").select("weight_unit").eq("id", user!.id).single(),
+    getMyPrivateProfile(),
     templateId
       ? Promise.all([
           supabase.from("workout_templates").select("name").eq("id", templateId).single(),
@@ -96,8 +97,8 @@ export default async function NewWorkoutPage({
       bestEver={bestEver}
       lastKnownWeight={lastKnownWeight}
       bodyweightKg={bodyweightKg}
-      age={profile?.age ?? null}
-      sex={(profile?.sex as Sex | null) ?? null}
+      age={privateProfile.age}
+      sex={privateProfile.sex as Sex | null}
       weightUnit={(profile?.weight_unit as WeightUnit | null) ?? "kg"}
       userId={user!.id}
     />

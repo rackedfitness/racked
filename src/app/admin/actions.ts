@@ -19,9 +19,11 @@ export type ReportRow = {
   created_at: string;
 };
 
-// Every admin RPC below is itself gated by is_admin inside Postgres (see
-// supabase/schema.sql), so a non-admin calling these directly still gets
-// rejected server-side — this redirect is just a friendlier UX up front.
+// Admin = is_admin flag AND a two-factor (aal2) session, checked inside
+// Postgres from the verified JWT (is_admin_with_mfa). Every admin RPC
+// re-checks the same thing itself; this gate matters most for
+// backfillPrCounts, which uses the service-role client and so has no
+// database-side check of its own.
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -29,8 +31,8 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: me } = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
-  if (!me?.is_admin) redirect("/");
+  const { data: ok } = await supabase.rpc("is_admin_with_mfa");
+  if (ok !== true) throw new Error("Not authorized");
 
   return supabase;
 }

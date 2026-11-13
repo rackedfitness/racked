@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient, getWeightUnit } from "@/lib/supabase/server";
+import { createClient, getWeightUnit, getMyPrivateProfile } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PostWorkoutButton from "@/components/PostWorkoutButton";
 import ShareRecapButton from "@/components/ShareRecapButton";
@@ -50,7 +50,7 @@ export default async function WorkoutDetailPage({
     { data: myLike },
     { data: comments },
   ] = await Promise.all([
-    supabase.from("profiles").select("username, display_name, avatar_url, age, sex").eq("id", workout.user_id).single(),
+    supabase.from("profiles").select("username, display_name, avatar_url").eq("id", workout.user_id).single(),
     supabase
       .from("workout_exercises")
       .select("id, order_index, exercise_id, notes, exercises(name, category)")
@@ -81,7 +81,10 @@ export default async function WorkoutDetailPage({
 
   const exerciseIds = (workoutExercises ?? []).map((we) => we.id);
   const bodyweightKg = latestMeasurement?.weight_kg ?? null;
-  const canRank = Boolean(bodyweightKg && author?.age && author?.sex);
+  // Sex/age are private to their owner, and so is bodyweight — so ranks can
+  // only ever be computed on your own workouts.
+  const authorPrivate = workout.user_id === user?.id ? await getMyPrivateProfile() : null;
+  const canRank = Boolean(bodyweightKg && authorPrivate?.age && authorPrivate?.sex);
 
   // sets depends on workoutExercises (just fetched above); allExercises only
   // depends on canRank, which is already known — no reason to make it wait
@@ -138,8 +141,8 @@ export default async function WorkoutDetailPage({
       workouts: (allWorkouts ?? []) as unknown as WorkoutLite[],
       exerciseNames,
       bodyweightKg: bodyweightKg!,
-      age: author!.age!,
-      sex: author!.sex as Sex,
+      age: authorPrivate!.age!,
+      sex: authorPrivate!.sex as Sex,
     }).filter((e) => e.workoutId === id);
   }
 

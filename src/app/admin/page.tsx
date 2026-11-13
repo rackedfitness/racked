@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient, getMyPrivateProfile } from "@/lib/supabase/server";
+import AdminMfaGate from "@/components/AdminMfaGate";
 import { getReports, updateReportStatus, adminDeleteWorkout, adminDeleteComment } from "@/app/admin/actions";
 import SubmitButton from "@/components/SubmitButton";
 import BackfillPrCountsButton from "@/components/BackfillPrCountsButton";
@@ -11,6 +14,25 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function AdminPage() {
+  const privateProfile = await getMyPrivateProfile();
+  if (!privateProfile.isAdmin) redirect("/");
+
+  const supabase = await createClient();
+  const { data: hasMfaSession } = await supabase.rpc("is_admin_with_mfa");
+  if (hasMfaSession !== true) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6">
+        <div className="flex items-center gap-3">
+          <Link href="/settings" className="text-muted">
+            <ArrowLeftIcon size={20} />
+          </Link>
+          <h1 className="text-xl font-bold">Admin</h1>
+        </div>
+        <AdminMfaGate />
+      </div>
+    );
+  }
+
   const reports = await getReports();
   const open = reports.filter((r) => r.status === "open");
   const resolved = reports.filter((r) => r.status !== "open");

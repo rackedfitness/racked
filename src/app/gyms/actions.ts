@@ -7,15 +7,18 @@ import { GYM_TAGS } from "@/lib/gymTags";
 
 const VALID_TAGS = new Set<string>(GYM_TAGS.map((t) => t.value));
 
+// Reviews are anonymous to other users — no reviewer identity is returned,
+// only whether a given review is your own. (Tied to identity, reviews
+// revealed which gyms, including hotel gyms while travelling, a specific
+// person uses.)
 export type GymReviewRow = {
   id: string;
-  user_id: string;
   rating: number;
   body: string | null;
   tags: string[];
   created_at: string;
   updated_at: string;
-  profiles: { username: string; display_name: string | null; avatar_url: string | null } | null;
+  is_mine: boolean;
 };
 
 export async function submitGymReview(input: {
@@ -48,7 +51,7 @@ export async function submitGymReview(input: {
       lng: input.lng ?? null,
       user_id: user.id,
       rating,
-      body: input.body?.trim() || null,
+      body: input.body?.trim().slice(0, 1000) || null,
       tags,
       updated_at: new Date().toISOString(),
     },
@@ -76,18 +79,10 @@ export async function deleteGymReview(reviewId: string) {
 
 export async function getGymReviews(placeId: string): Promise<{ reviews: GymReviewRow[]; myReviewId: string | null }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.rpc("gym_reviews_for_place", { p_place_id: placeId });
 
-  const { data } = await supabase
-    .from("gym_reviews")
-    .select("id, user_id, rating, body, tags, created_at, updated_at, profiles!gym_reviews_user_id_fkey(username, display_name, avatar_url)")
-    .eq("place_id", placeId)
-    .order("created_at", { ascending: false });
-
-  const reviews = (data ?? []) as unknown as GymReviewRow[];
-  const mine = user ? reviews.find((r) => r.user_id === user.id) : undefined;
+  const reviews = (data ?? []) as GymReviewRow[];
+  const mine = reviews.find((r) => r.is_mine);
   return { reviews, myReviewId: mine?.id ?? null };
 }
 
@@ -102,33 +97,28 @@ export type ReviewedGym = {
 };
 
 // Powers the map on /gyms — every gym any Racked user has reviewed, one pin
-// per place_id. Aggregated in JS rather than a DB view since review volume
-// is small at this stage; revisit if that stops being true.
+// per place_id, aggregated in the database (reviewed_gyms) so no individual
+// reviewer's identity ever leaves it.
 export async function getReviewedGyms(): Promise<ReviewedGym[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("gym_reviews")
-    .select("place_id, gym_name, gym_address, lat, lng, rating");
+  const { data } = await supabase.rpc("reviewed_gyms");
 
-  const byPlace = new Map<string, { name: string; address: string | null; lat: number | null; lng: number | null; ratings: number[] }>();
-  for (const r of data ?? []) {
-    const existing = byPlace.get(r.place_id);
-    if (existing) {
-      existing.ratings.push(r.rating);
-      if (!existing.lat && r.lat) existing.lat = r.lat;
-      if (!existing.lng && r.lng) existing.lng = r.lng;
-    } else {
-      byPlace.set(r.place_id, { name: r.gym_name, address: r.gym_address, lat: r.lat, lng: r.lng, ratings: [r.rating] });
-    }
-  }
-
-  return Array.from(byPlace.entries()).map(([placeId, g]) => ({
-    placeId,
-    name: g.name,
-    address: g.address,
+  type Row = {
+    place_id: string;
+    gym_name: string;
+    gym_address: string | null;
+    lat: number | null;
+    lng: number | null;
+    avg_rating: number | string;
+    review_count: number | string;
+  };
+  return ((data ?? []) as Row[]).map((g) => ({
+    placeId: g.place_id,
+    name: g.gym_name,
+    address: g.gym_address,
     lat: g.lat,
     lng: g.lng,
-    avgRating: g.ratings.reduce((sum, n) => sum + n, 0) / g.ratings.length,
-    reviewCount: g.ratings.length,
+    avgRating: Number(g.avg_rating),
+    reviewCount: Number(g.review_count),
   }));
 }

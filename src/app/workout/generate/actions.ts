@@ -33,12 +33,13 @@ export async function generateWorkoutFromEquipment(input: { photoBase64?: string
     bucket: "ai-generate",
     windowSeconds: 60 * 60 * 24,
     maxRequests: 10,
+    failClosed: true,
   });
   if (!withinLimit) {
     throw new Error("You've hit today's limit for AI-generated workouts — try again tomorrow.");
   }
 
-  const machineNames = input.machineNames?.trim();
+  const machineNames = input.machineNames?.trim().slice(0, 500);
   if (!input.photoBase64 && !machineNames) {
     throw new Error("Add a photo or list the machines you have.");
   }

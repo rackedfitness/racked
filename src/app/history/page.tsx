@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient, getWeightUnit } from "@/lib/supabase/server";
+import { createClient, getWeightUnit, getMyPrivateProfile } from "@/lib/supabase/server";
 import { attachPRCounts, computePREvents, formatVolume, type WorkoutLite } from "@/lib/stats";
 import { formatWeight } from "@/lib/units";
 import { computeLiftRank, liftKeyForExerciseName, type Sex } from "@/lib/rankSystem";
@@ -45,11 +45,7 @@ export default async function HistoryPage({
   let canRank = false;
 
   if (activeView === "prs") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("sex, age")
-      .eq("id", user!.id)
-      .single();
+    const profile = await getMyPrivateProfile();
 
     const { data: latestMeasurement } = await supabase
       .from("body_measurements")

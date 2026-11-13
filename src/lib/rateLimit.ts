@@ -11,11 +11,13 @@ export async function checkRateLimit({
   bucket,
   windowSeconds,
   maxRequests,
+  failClosed = false,
 }: {
   userId: string;
   bucket: string;
   windowSeconds: number;
   maxRequests: number;
+  failClosed?: boolean;
 }): Promise<boolean> {
   const supabase = await createClient();
   const windowStart = new Date(Math.floor(Date.now() / (windowSeconds * 1000)) * windowSeconds * 1000).toISOString();
@@ -26,9 +28,10 @@ export async function checkRateLimit({
     p_window_start: windowStart,
   });
 
-  // Fail open: if the limiter itself errors (e.g. migration not applied
-  // yet), don't take down the feature it's protecting over it.
-  if (error) return true;
+  // By default fail open — a broken limiter shouldn't take down a cheap
+  // feature like search. failClosed is for endpoints where an unmetered
+  // outage means an unbounded bill (the AI generator).
+  if (error) return !failClosed;
 
   return (count ?? 0) <= maxRequests;
 }

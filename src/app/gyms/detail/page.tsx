@@ -5,7 +5,6 @@ import { gymTagLabel, gymTagEmoji } from "@/lib/gymTags";
 import GymMap from "@/components/GymMapClient";
 import StarRating from "@/components/StarRating";
 import GymReviewForm from "@/components/GymReviewForm";
-import Avatar from "@/components/Avatar";
 import { ArrowLeftIcon } from "@/components/UIIcons";
 
 export default async function GymDetailPage({
@@ -83,10 +82,7 @@ export default async function GymDetailPage({
             {otherReviews.map((r) => (
               <div key={r.id} className="flex flex-col gap-1.5 rounded-lg border border-card-border bg-card p-3">
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <Avatar url={r.profiles?.avatar_url ?? null} name={r.profiles?.display_name ?? r.profiles?.username ?? "?"} size="sm" />
-                    {r.profiles?.display_name ?? r.profiles?.username ?? "Someone"}
-                  </span>
+                  <span className="text-sm font-medium text-muted">Racked member</span>
                   <StarRating value={r.rating} size={14} />
                 </div>
                 {r.tags.length > 0 && (

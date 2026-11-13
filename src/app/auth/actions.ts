@@ -42,6 +42,12 @@ export async function signup(formData: FormData) {
   if (formData.get("agreeToTerms") !== "on") {
     redirect(`/signup?error=${encodeURIComponent("You must confirm you're 13+ and agree to the Terms and Privacy Policy.")}`);
   }
+  // NIST SP 800-63B: at least 8 characters, long passphrases allowed, no
+  // arbitrary composition rules. (Also set the same minimum in Supabase's
+  // Auth settings, which is what actually enforces it for API sign-ups.)
+  if (password.length < 8 || password.length > 128) {
+    redirect(`/signup?error=${encodeURIComponent("Password must be between 8 and 128 characters.")}`);
+  }
 
   const supabase = await createClient();
   const origin = await getOrigin();

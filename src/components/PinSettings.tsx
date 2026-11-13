@@ -76,7 +76,10 @@ export default function PinSettings() {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium">App lock (PIN)</p>
-          <p className="text-xs text-muted">Require a PIN to open Racked, like a password.</p>
+          <p className="text-xs text-muted">
+            Require a PIN to open Racked on this device. It&apos;s a screen lock against someone picking up your
+            phone — not account security, and it isn&apos;t synced to other devices.
+          </p>
         </div>
       </div>
 

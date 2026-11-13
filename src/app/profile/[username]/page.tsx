@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createClient, getUser, getWeightUnit } from "@/lib/supabase/server";
+import { createClient, getUser, getWeightUnit, getMyPrivateProfile } from "@/lib/supabase/server";
 import { follow, unfollow } from "@/app/social/actions";
 import { workoutVolume, formatVolume, computeStreakDays, computeBestEverMap, type WorkoutLite } from "@/lib/stats";
 import { computeAllLiftRanks, bestOverallRank, type Sex } from "@/lib/rankSystem";
@@ -26,7 +26,7 @@ export default async function ProfilePage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, sex, age, avatar_url")
+    .select("id, username, display_name, avatar_url")
     .eq("username", username)
     .single();
 
@@ -49,6 +49,7 @@ export default async function ProfilePage({
     { data: publicPlans },
     weightUnit,
     { data: blockRow },
+    privateProfile,
   ] = await Promise.all([
     isSelf
       ? Promise.resolve({ data: null })
@@ -95,6 +96,9 @@ export default async function ProfilePage({
           .or(`and(blocker_id.eq.${user?.id ?? ""},blocked_id.eq.${profile.id}),and(blocker_id.eq.${profile.id},blocked_id.eq.${user?.id ?? ""})`)
           .limit(1)
           .maybeSingle(),
+    // sex/age are private to their owner (as is bodyweight), so ranks are
+    // only computable on your own profile
+    isSelf ? getMyPrivateProfile() : Promise.resolve(null),
   ]);
 
   const isFollowing = Boolean(existingFollow);
@@ -108,15 +112,15 @@ export default async function ProfilePage({
   const exerciseNames = Object.fromEntries((exercises ?? []).map((e) => [e.id, e.name]));
 
   const bodyweightKg = latestMeasurement?.weight_kg ?? null;
-  const canRank = Boolean(bodyweightKg && profile.age && profile.sex);
+  const canRank = Boolean(bodyweightKg && privateProfile?.age && privateProfile?.sex);
 
   const liftRanks = canRank
     ? computeAllLiftRanks({
         bestEver: computeBestEverMap(workouts),
         exerciseNames,
         bodyweightKg: bodyweightKg!,
-        age: profile.age!,
-        sex: profile.sex as Sex,
+        age: privateProfile!.age!,
+        sex: privateProfile!.sex as Sex,
       })
     : [];
   const topRank = bestOverallRank(liftRanks);

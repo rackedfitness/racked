@@ -33,17 +33,78 @@ create policy "profiles are viewable by any authenticated user"
   to authenticated
   using (true);
 
+-- profiles are only ever created by the handle_new_user() trigger below
 drop policy if exists "users can insert their own profile" on public.profiles;
-create policy "users can insert their own profile"
-  on public.profiles for insert
-  to authenticated
-  with check (auth.uid() = id);
 
 drop policy if exists "users can update their own profile" on public.profiles;
 create policy "users can update their own profile"
   on public.profiles for update
   to authenticated
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- Column-level privileges on top of RLS: RLS decides WHICH rows, these
+-- decide WHICH columns. Without them a user could update their own
+-- is_admin/username, and read every other user's sex/age/is_admin.
+-- Your own private columns are read via my_private_profile() instead.
+revoke insert, update on public.profiles from anon, authenticated;
+grant update (display_name, avatar_url, sex, age, weight_unit) on public.profiles to authenticated;
+revoke select on public.profiles from anon, authenticated;
+grant select (id, username, display_name, avatar_url, weight_unit, created_at) on public.profiles to authenticated;
+
+alter table public.profiles drop constraint if exists profiles_display_name_length;
+alter table public.profiles add constraint profiles_display_name_length
+  check (display_name is null or char_length(display_name) <= 50) not valid;
+
+create or replace function public.my_private_profile()
+returns table (sex text, age int, is_admin boolean)
+language sql stable security definer set search_path = public
+as $$
+  select p.sex, p.age, p.is_admin from public.profiles p where p.id = auth.uid();
+$$;
+revoke all on function public.my_private_profile() from public, anon;
+grant execute on function public.my_private_profile() to authenticated;
+
+-- Admin actions require both the is_admin flag and a two-factor (aal2) session.
+create or replace function public.is_admin_with_mfa()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+     and exists (select 1 from public.profiles where id = auth.uid() and is_admin);
+$$;
+revoke all on function public.is_admin_with_mfa() from public, anon;
+grant execute on function public.is_admin_with_mfa() to authenticated;
+
+-- Visibility helpers used by RLS policies throughout this file. plpgsql so
+-- they can be defined before the follows/blocks tables they query exist.
+-- Both only ever answer questions about the CALLER's own relationships.
+create or replace function public.blocked_with(other uuid)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+begin
+  return exists (
+    select 1 from public.blocks
+    where (blocker_id = auth.uid() and blocked_id = other)
+       or (blocker_id = other and blocked_id = auth.uid())
+  );
+end;
+$$;
+
+create or replace function public.can_see_workout_of(owner_id uuid, workout_is_public boolean)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+begin
+  if owner_id = auth.uid() then
+    return true;
+  end if;
+  return workout_is_public
+    and not public.blocked_with(owner_id)
+    and exists (select 1 from public.follows f where f.follower_id = auth.uid() and f.following_id = owner_id);
+end;
+$$;
 
 -- auto-create a profile row whenever a new auth user signs up.
 -- collision-proof: falls back to base_username_1, _2, ... if the derived
@@ -91,7 +152,7 @@ create trigger on_auth_user_created
 -- =========================================
 create table if not exists public.exercises (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique,
+  name text not null,
   category text, -- e.g. 'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio'
   equipment text, -- e.g. 'barbell', 'dumbbell', 'machine', 'bodyweight', 'weighted_bodyweight'
   created_by uuid references public.profiles(id) on delete set null,
@@ -100,11 +161,17 @@ create table if not exists public.exercises (
 
 alter table public.exercises enable row level security;
 
+-- Custom exercises used to be visible (and name-squattable) for everyone.
+-- Names now only need to be unique within the shared library, or within
+-- one user's own custom exercises. The select policy lives after the
+-- workout_template_exercises section, since it references that table.
 drop policy if exists "exercises are viewable by any authenticated user" on public.exercises;
-create policy "exercises are viewable by any authenticated user"
-  on public.exercises for select
-  to authenticated
-  using (true);
+alter table public.exercises drop constraint if exists exercises_name_key;
+create unique index if not exists exercises_library_name_key on public.exercises (name) where created_by is null;
+create unique index if not exists exercises_custom_name_key on public.exercises (created_by, name) where created_by is not null;
+alter table public.exercises drop constraint if exists exercises_name_length;
+alter table public.exercises add constraint exercises_name_length
+  check (char_length(name) between 1 and 80) not valid;
 
 drop policy if exists "users can create custom exercises" on public.exercises;
 create policy "users can create custom exercises"
@@ -135,7 +202,7 @@ drop policy if exists "users can follow as themselves" on public.follows;
 create policy "users can follow as themselves"
   on public.follows for insert
   to authenticated
-  with check (follower_id = auth.uid());
+  with check (follower_id = auth.uid() and not public.blocked_with(following_id));
 
 drop policy if exists "users can unfollow as themselves" on public.follows;
 create policy "users can unfollow as themselves"
@@ -185,16 +252,7 @@ drop policy if exists "users can view own workouts or public workouts of people 
 create policy "users can view own workouts or public workouts of people they follow"
   on public.workouts for select
   to authenticated
-  using (
-    user_id = auth.uid()
-    or (
-      is_public
-      and exists (
-        select 1 from public.follows f
-        where f.follower_id = auth.uid() and f.following_id = workouts.user_id
-      )
-    )
-  );
+  using (public.can_see_workout_of(user_id, is_public));
 
 drop policy if exists "users can insert their own workouts" on public.workouts;
 create policy "users can insert their own workouts"
@@ -234,14 +292,7 @@ create policy "workout_exercises follow parent workout visibility"
   using (
     exists (
       select 1 from public.workouts w
-      where w.id = workout_exercises.workout_id
-        and (
-          w.user_id = auth.uid()
-          or exists (
-            select 1 from public.follows f
-            where f.follower_id = auth.uid() and f.following_id = w.user_id
-          )
-        )
+      where w.id = workout_exercises.workout_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
 
@@ -294,14 +345,7 @@ create policy "workout_sets follow parent workout visibility"
     exists (
       select 1 from public.workout_exercises we
       join public.workouts w on w.id = we.workout_id
-      where we.id = workout_sets.workout_exercise_id
-        and (
-          w.user_id = auth.uid()
-          or exists (
-            select 1 from public.follows f
-            where f.follower_id = auth.uid() and f.following_id = w.user_id
-          )
-        )
+      where we.id = workout_sets.workout_exercise_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
 
@@ -360,17 +404,7 @@ create policy "workout_likes follow parent workout visibility"
   using (
     exists (
       select 1 from public.workouts w
-      where w.id = workout_likes.workout_id
-        and (
-          w.user_id = auth.uid()
-          or (
-            w.is_public
-            and exists (
-              select 1 from public.follows f
-              where f.follower_id = auth.uid() and f.following_id = w.user_id
-            )
-          )
-        )
+      where w.id = workout_likes.workout_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
 
@@ -382,17 +416,7 @@ create policy "users can like visible workouts as themselves"
     user_id = auth.uid()
     and exists (
       select 1 from public.workouts w
-      where w.id = workout_id
-        and (
-          w.user_id = auth.uid()
-          or (
-            w.is_public
-            and exists (
-              select 1 from public.follows f
-              where f.follower_id = auth.uid() and f.following_id = w.user_id
-            )
-          )
-        )
+      where w.id = workout_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
 
@@ -422,17 +446,7 @@ create policy "workout_comments follow parent workout visibility"
   using (
     exists (
       select 1 from public.workouts w
-      where w.id = workout_comments.workout_id
-        and (
-          w.user_id = auth.uid()
-          or (
-            w.is_public
-            and exists (
-              select 1 from public.follows f
-              where f.follower_id = auth.uid() and f.following_id = w.user_id
-            )
-          )
-        )
+      where w.id = workout_comments.workout_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
 
@@ -445,19 +459,13 @@ create policy "users can comment on visible workouts as themselves"
     and length(trim(body)) > 0
     and exists (
       select 1 from public.workouts w
-      where w.id = workout_id
-        and (
-          w.user_id = auth.uid()
-          or (
-            w.is_public
-            and exists (
-              select 1 from public.follows f
-              where f.follower_id = auth.uid() and f.following_id = w.user_id
-            )
-          )
-        )
+      where w.id = workout_id and public.can_see_workout_of(w.user_id, w.is_public)
     )
   );
+
+alter table public.workout_comments drop constraint if exists workout_comments_body_length;
+alter table public.workout_comments add constraint workout_comments_body_length
+  check (char_length(body) <= 500) not valid;
 
 drop policy if exists "users can delete their own comments" on public.workout_comments;
 create policy "users can delete their own comments"
@@ -487,11 +495,62 @@ create policy "users can view their own notifications"
   to authenticated
   using (user_id = auth.uid());
 
+-- No client insert policy: notifications are written only by the triggers
+-- below. A client-side insert policy let anyone send anyone a fake
+-- like/comment/follow notification, including people who'd blocked them.
 drop policy if exists "users can create notifications as themselves" on public.notifications;
-create policy "users can create notifications as themselves"
-  on public.notifications for insert
-  to authenticated
-  with check (actor_id = auth.uid());
+revoke insert on public.notifications from anon, authenticated;
+
+create or replace function public.notify_on_follow()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  if new.follower_id <> new.following_id then
+    insert into public.notifications (user_id, actor_id, type)
+    values (new.following_id, new.follower_id, 'follow');
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists notify_on_follow on public.follows;
+create trigger notify_on_follow after insert on public.follows
+  for each row execute procedure public.notify_on_follow();
+
+create or replace function public.notify_on_like()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  owner_id uuid;
+begin
+  select user_id into owner_id from public.workouts where id = new.workout_id;
+  if owner_id is not null and owner_id <> new.user_id then
+    insert into public.notifications (user_id, actor_id, type, workout_id)
+    values (owner_id, new.user_id, 'like', new.workout_id);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists notify_on_like on public.workout_likes;
+create trigger notify_on_like after insert on public.workout_likes
+  for each row execute procedure public.notify_on_like();
+
+create or replace function public.notify_on_comment()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  owner_id uuid;
+begin
+  select user_id into owner_id from public.workouts where id = new.workout_id;
+  if owner_id is not null and owner_id <> new.user_id then
+    insert into public.notifications (user_id, actor_id, type, workout_id, comment_id)
+    values (owner_id, new.user_id, 'comment', new.workout_id, new.id);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists notify_on_comment on public.workout_comments;
+create trigger notify_on_comment after insert on public.workout_comments
+  for each row execute procedure public.notify_on_comment();
 
 drop policy if exists "users can mark their own notifications read" on public.notifications;
 create policy "users can mark their own notifications read"
@@ -649,6 +708,24 @@ create policy "users can delete their own measurements"
   on public.body_measurements for delete
   to authenticated
   using (user_id = auth.uid());
+
+-- =========================================
+-- exercises select policy (defined here, not in the exercises section,
+-- because it references workout_exercises / workout_template_exercises)
+--
+-- Library exercises are visible to everyone; a custom exercise only to
+-- its creator, plus anyone who can see a workout or plan that uses it.
+-- =========================================
+drop policy if exists "exercises are viewable when shared or yours" on public.exercises;
+create policy "exercises are viewable when shared or yours"
+  on public.exercises for select
+  to authenticated
+  using (
+    created_by is null
+    or created_by = auth.uid()
+    or exists (select 1 from public.workout_exercises we where we.exercise_id = exercises.id)
+    or exists (select 1 from public.workout_template_exercises te where te.exercise_id = exercises.id)
+  );
 
 -- =========================================
 -- seed a small default exercise library
@@ -937,10 +1014,16 @@ insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
+-- Public buckets already serve every file by URL with no select policy at
+-- all. A bucket-wide select policy additionally lets anyone (even logged
+-- out) LIST every file in the bucket, so it's scoped to your own folder —
+-- which is still needed for upsert (re-uploading your avatar).
 drop policy if exists "avatar images are publicly accessible" on storage.objects;
-create policy "avatar images are publicly accessible"
+drop policy if exists "users can list their own avatars" on storage.objects;
+create policy "users can list their own avatars"
   on storage.objects for select
-  using (bucket_id = 'avatars');
+  to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists "users can upload their own avatar" on storage.objects;
 create policy "users can upload their own avatar"
@@ -968,9 +1051,11 @@ values ('workout-photos', 'workout-photos', true)
 on conflict (id) do nothing;
 
 drop policy if exists "workout photos are publicly accessible" on storage.objects;
-create policy "workout photos are publicly accessible"
+drop policy if exists "users can list their own workout photos" on storage.objects;
+create policy "users can list their own workout photos"
   on storage.objects for select
-  using (bucket_id = 'workout-photos');
+  to authenticated
+  using (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists "users can upload their own workout photos" on storage.objects;
 create policy "users can upload their own workout photos"
@@ -1094,6 +1179,23 @@ create policy "users can remove their own blocks"
   to authenticated
   using (blocker_id = auth.uid());
 
+-- A block ends any follow in either direction. (RLS only lets the blocker
+-- delete their OWN follow, so the app couldn't remove the blocked user's
+-- follow of the blocker — leaving them able to see the blocker's workouts.)
+create or replace function public.handle_block_created()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  delete from public.follows
+  where (follower_id = new.blocker_id and following_id = new.blocked_id)
+     or (follower_id = new.blocked_id and following_id = new.blocker_id);
+  return new;
+end;
+$$;
+drop trigger if exists on_block_created on public.blocks;
+create trigger on_block_created after insert on public.blocks
+  for each row execute procedure public.handle_block_created();
+
 -- =========================================
 -- reports (insert-and-forget from the app's side — reviewed directly in
 -- the Supabase dashboard for now, no in-app admin UI)
@@ -1148,7 +1250,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+  if not public.is_admin_with_mfa() then
     raise exception 'Not authorized';
   end if;
 
@@ -1182,7 +1284,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+  if not public.is_admin_with_mfa() then
     raise exception 'Not authorized';
   end if;
   if p_status not in ('open', 'reviewed', 'dismissed') then
@@ -1202,7 +1304,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+  if not public.is_admin_with_mfa() then
     raise exception 'Not authorized';
   end if;
 
@@ -1219,7 +1321,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where id = auth.uid() and is_admin) then
+  if not public.is_admin_with_mfa() then
     raise exception 'Not authorized';
   end if;
 
@@ -1255,11 +1357,20 @@ create table if not exists public.gym_reviews (
 
 alter table public.gym_reviews enable row level security;
 
+-- Reviews are anonymous to other users: tied to identity, they revealed
+-- which gyms (including hotel gyms while travelling) a given person uses.
+-- You can read your own rows directly; everyone else's come through the
+-- identity-free functions below.
 drop policy if exists "gym reviews are viewable by any authenticated user" on public.gym_reviews;
-create policy "gym reviews are viewable by any authenticated user"
+drop policy if exists "users can view their own gym reviews" on public.gym_reviews;
+create policy "users can view their own gym reviews"
   on public.gym_reviews for select
   to authenticated
-  using (true);
+  using (user_id = auth.uid());
+
+alter table public.gym_reviews drop constraint if exists gym_reviews_body_length;
+alter table public.gym_reviews add constraint gym_reviews_body_length
+  check (body is null or char_length(body) <= 1000) not valid;
 
 drop policy if exists "users can insert their own gym reviews" on public.gym_reviews;
 create policy "users can insert their own gym reviews"
@@ -1280,3 +1391,32 @@ create policy "users can delete their own gym reviews"
   using (user_id = auth.uid());
 
 create index if not exists gym_reviews_place_idx on public.gym_reviews (place_id);
+
+create or replace function public.gym_reviews_for_place(p_place_id text)
+returns table (id uuid, rating int, body text, tags text[], created_at timestamptz, updated_at timestamptz, is_mine boolean)
+language sql stable security definer set search_path = public
+as $$
+  select r.id, r.rating, r.body, r.tags, r.created_at, r.updated_at, r.user_id = auth.uid()
+  from public.gym_reviews r
+  where r.place_id = p_place_id
+  order by r.created_at desc;
+$$;
+revoke all on function public.gym_reviews_for_place(text) from public, anon;
+grant execute on function public.gym_reviews_for_place(text) to authenticated;
+
+create or replace function public.reviewed_gyms()
+returns table (place_id text, gym_name text, gym_address text, lat double precision, lng double precision, avg_rating numeric, review_count bigint)
+language sql stable security definer set search_path = public
+as $$
+  select r.place_id,
+         (array_agg(r.gym_name order by r.created_at))[1],
+         (array_agg(r.gym_address order by r.created_at))[1],
+         (array_agg(r.lat order by r.created_at) filter (where r.lat is not null))[1],
+         (array_agg(r.lng order by r.created_at) filter (where r.lng is not null))[1],
+         avg(r.rating),
+         count(*)
+  from public.gym_reviews r
+  group by r.place_id;
+$$;
+revoke all on function public.reviewed_gyms() from public, anon;
+grant execute on function public.reviewed_gyms() to authenticated;

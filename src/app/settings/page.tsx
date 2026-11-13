@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getMyPrivateProfile } from "@/lib/supabase/server";
 import { updateProfile } from "@/app/settings/actions";
 import AvatarUpload from "@/components/AvatarUpload";
 import AccentPicker from "@/components/AccentPicker";
@@ -17,11 +17,10 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, username, sex, age, avatar_url, weight_unit, is_admin")
-    .eq("id", user!.id)
-    .single();
+  const [{ data: profile }, privateProfile] = await Promise.all([
+    supabase.from("profiles").select("display_name, username, avatar_url, weight_unit").eq("id", user!.id).single(),
+    getMyPrivateProfile(),
+  ]);
 
   const { data: rawWorkouts } = await supabase
     .from("workouts")
@@ -60,6 +59,7 @@ export default async function SettingsPage() {
           <span className="mb-1 block text-muted">Display name</span>
           <input
             name="displayName"
+            maxLength={50}
             defaultValue={profile?.display_name ?? ""}
             className="w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground"
           />
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
             <span className="mb-1 block text-muted">Sex</span>
             <select
               name="sex"
-              defaultValue={profile?.sex ?? ""}
+              defaultValue={privateProfile.sex ?? ""}
               className="w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground"
             >
               <option value="">—</option>
@@ -93,7 +93,7 @@ export default async function SettingsPage() {
               type="number"
               min={1}
               max={119}
-              defaultValue={profile?.age ?? ""}
+              defaultValue={privateProfile.age ?? ""}
               className="tnum w-full rounded-md border border-card-border bg-background px-3 py-2 text-sm text-foreground"
             />
           </label>
@@ -188,7 +188,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {profile?.is_admin && (
+      {privateProfile.isAdmin && (
         <Link
           href="/admin"
           className="flex items-center justify-between rounded-lg border border-card-border bg-card p-4 text-sm"

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { prepareImageForUpload } from "@/lib/imageResize";
 import { updateAvatar } from "@/app/settings/actions";
 import Avatar from "@/components/Avatar";
 
@@ -56,13 +57,21 @@ export default function AvatarUpload({
     }
 
     setUploading(true);
+    let image: Blob;
+    try {
+      image = await prepareImageForUpload(file, 512);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not process image");
+      setUploading(false);
+      return;
+    }
+
     const supabase = createClient();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${userId}/avatar.${ext}`;
+    const path = `${userId}/avatar.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true, cacheControl: "3600" });
+      .upload(path, image, { upsert: true, cacheControl: "3600", contentType: "image/jpeg" });
 
     if (uploadError) {
       setError(uploadError.message);
