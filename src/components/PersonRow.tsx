@@ -2,17 +2,19 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import SubmitButton from "@/components/SubmitButton";
 import { follow, unfollow } from "@/app/social/actions";
+import type { FollowStatus } from "@/lib/followState";
 
 export default function PersonRow({
   profile,
-  isFollowing,
+  status,
   isSelf,
 }: {
   profile: { id: string; username: string; display_name: string | null; avatar_url: string | null };
-  isFollowing: boolean;
+  status: FollowStatus;
   isSelf: boolean;
 }) {
-  const action = isFollowing ? unfollow.bind(null, profile.id) : follow.bind(null, profile.id);
+  // unfollow also cancels a pending request
+  const action = status === "none" ? follow.bind(null, profile.id) : unfollow.bind(null, profile.id);
 
   return (
     <div className="flex items-center justify-between py-3">
@@ -27,12 +29,12 @@ export default function PersonRow({
         <form action={action}>
           <SubmitButton
             className={
-              isFollowing
-                ? "rounded-full border border-card-border px-3 py-2 text-sm font-medium text-muted"
-                : "glow-accent-sm rounded-full bg-accent px-3 py-2 text-sm font-bold text-accent-ink"
+              status === "none"
+                ? "glow-accent-sm rounded-full bg-accent px-3 py-2 text-sm font-bold text-accent-ink"
+                : "rounded-full border border-card-border px-3 py-2 text-sm font-medium text-muted"
             }
           >
-            {isFollowing ? "Following" : "Follow"}
+            {status === "following" ? "Following" : status === "requested" ? "Requested" : "Follow"}
           </SubmitButton>
         </form>
       )}

@@ -25,6 +25,13 @@ alter table public.profiles add column if not exists weight_unit text not null d
 -- there is no in-app way to grant this to another account
 alter table public.profiles add column if not exists is_admin boolean not null default false;
 
+-- Private account: following needs approval, and the follower/following
+-- lists and public plans are only visible to approved followers. Accounts
+-- that existed before this column stayed public; new sign-ups default to
+-- private (the default flips after the column has been added).
+alter table public.profiles add column if not exists is_private boolean not null default false;
+alter table public.profiles alter column is_private set default true;
+
 alter table public.profiles enable row level security;
 
 drop policy if exists "profiles are viewable by any authenticated user" on public.profiles;
@@ -48,9 +55,9 @@ create policy "users can update their own profile"
 -- is_admin/username, and read every other user's sex/age/is_admin.
 -- Your own private columns are read via my_private_profile() instead.
 revoke insert, update on public.profiles from anon, authenticated;
-grant update (display_name, avatar_url, sex, age, weight_unit) on public.profiles to authenticated;
+grant update (display_name, avatar_url, sex, age, weight_unit, is_private) on public.profiles to authenticated;
 revoke select on public.profiles from anon, authenticated;
-grant select (id, username, display_name, avatar_url, weight_unit, created_at) on public.profiles to authenticated;
+grant select (id, username, display_name, avatar_url, weight_unit, created_at, is_private) on public.profiles to authenticated;
 
 alter table public.profiles drop constraint if exists profiles_display_name_length;
 alter table public.profiles add constraint profiles_display_name_length
@@ -103,6 +110,28 @@ begin
   return workout_is_public
     and not public.blocked_with(owner_id)
     and exists (select 1 from public.follows f where f.follower_id = auth.uid() and f.following_id = owner_id);
+end;
+$$;
+
+create or replace function public.is_private_account(p_user_id uuid)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+begin
+  return coalesce((select is_private from public.profiles where id = p_user_id), false);
+end;
+$$;
+
+-- Whether the caller may see a user's followers/following lists and public
+-- plans: it's you, the account is public, or you're an approved follower.
+create or replace function public.can_see_profile_details(owner_id uuid)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+begin
+  return owner_id = auth.uid()
+    or not public.is_private_account(owner_id)
+    or exists (select 1 from public.follows f where f.follower_id = auth.uid() and f.following_id = owner_id);
 end;
 $$;
 
@@ -192,23 +221,130 @@ create table if not exists public.follows (
 
 alter table public.follows enable row level security;
 
+-- A private account's follower/following lists are only visible to its
+-- approved followers (counts stay public via follow_counts() below).
 drop policy if exists "follow edges are viewable by any authenticated user" on public.follows;
-create policy "follow edges are viewable by any authenticated user"
+drop policy if exists "follow edges are viewable unless an account is private" on public.follows;
+create policy "follow edges are viewable unless an account is private"
   on public.follows for select
   to authenticated
-  using (true);
+  using (
+    follower_id = auth.uid()
+    or following_id = auth.uid()
+    or (public.can_see_profile_details(follower_id) and public.can_see_profile_details(following_id))
+  );
 
+-- Private accounts can't be followed directly — that goes through
+-- follow_requests and accept_follow_request() instead.
 drop policy if exists "users can follow as themselves" on public.follows;
 create policy "users can follow as themselves"
   on public.follows for insert
   to authenticated
-  with check (follower_id = auth.uid() and not public.blocked_with(following_id));
+  with check (
+    follower_id = auth.uid()
+    and not public.blocked_with(following_id)
+    and not public.is_private_account(following_id)
+  );
 
 drop policy if exists "users can unfollow as themselves" on public.follows;
 create policy "users can unfollow as themselves"
   on public.follows for delete
   to authenticated
   using (follower_id = auth.uid());
+
+create or replace function public.follow_counts(p_user_id uuid)
+returns table (followers bigint, following bigint)
+language sql stable security definer set search_path = public
+as $$
+  select (select count(*) from public.follows where following_id = p_user_id),
+         (select count(*) from public.follows where follower_id = p_user_id);
+$$;
+revoke all on function public.follow_counts(uuid) from public, anon;
+grant execute on function public.follow_counts(uuid) to authenticated;
+
+-- =========================================
+-- follow_requests (pending follows of private accounts)
+-- =========================================
+create table if not exists public.follow_requests (
+  requester_id uuid not null references public.profiles(id) on delete cascade,
+  target_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (requester_id, target_id),
+  check (requester_id <> target_id)
+);
+
+alter table public.follow_requests enable row level security;
+
+drop policy if exists "users can view requests they sent or received" on public.follow_requests;
+create policy "users can view requests they sent or received"
+  on public.follow_requests for select
+  to authenticated
+  using (requester_id = auth.uid() or target_id = auth.uid());
+
+drop policy if exists "users can request to follow private accounts" on public.follow_requests;
+create policy "users can request to follow private accounts"
+  on public.follow_requests for insert
+  to authenticated
+  with check (
+    requester_id = auth.uid()
+    and public.is_private_account(target_id)
+    and not public.blocked_with(target_id)
+  );
+
+-- the requester cancels, or the target declines
+drop policy if exists "either side can remove a request" on public.follow_requests;
+create policy "either side can remove a request"
+  on public.follow_requests for delete
+  to authenticated
+  using (requester_id = auth.uid() or target_id = auth.uid());
+
+-- Accepting creates a follows row owned by the REQUESTER, which RLS would
+-- never let the target insert directly — hence a narrow definer function.
+create or replace function public.accept_follow_request(p_requester_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.follow_requests where requester_id = p_requester_id and target_id = auth.uid()
+  ) then
+    raise exception 'No such follow request';
+  end if;
+
+  if not public.blocked_with(p_requester_id) then
+    insert into public.follows (follower_id, following_id)
+    values (p_requester_id, auth.uid())
+    on conflict do nothing;
+  end if;
+
+  delete from public.follow_requests where requester_id = p_requester_id and target_id = auth.uid();
+end;
+$$;
+revoke all on function public.accept_follow_request(uuid) from public, anon;
+grant execute on function public.accept_follow_request(uuid) to authenticated;
+
+-- switching private -> public accepts every pending request
+create or replace function public.handle_privacy_change()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  if old.is_private and not new.is_private then
+    insert into public.follows (follower_id, following_id)
+    select r.requester_id, r.target_id from public.follow_requests r
+    where r.target_id = new.id and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = r.requester_id and b.blocked_id = r.target_id)
+         or (b.blocker_id = r.target_id and b.blocked_id = r.requester_id)
+    )
+    on conflict do nothing;
+    delete from public.follow_requests where target_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_privacy_change on public.profiles;
+create trigger on_privacy_change after update of is_private on public.profiles
+  for each row execute procedure public.handle_privacy_change();
 
 -- =========================================
 -- workouts
@@ -480,7 +616,7 @@ create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   actor_id uuid not null references public.profiles(id) on delete cascade,
-  type text not null check (type in ('like', 'comment', 'follow')),
+  type text not null,
   workout_id uuid references public.workouts(id) on delete cascade,
   comment_id uuid references public.workout_comments(id) on delete cascade,
   read boolean not null default false,
@@ -501,17 +637,61 @@ create policy "users can view their own notifications"
 drop policy if exists "users can create notifications as themselves" on public.notifications;
 revoke insert on public.notifications from anon, authenticated;
 
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check
+  check (type in ('like', 'comment', 'follow', 'follow_request', 'follow_accepted'));
+
+-- A follow created by accepting a request notifies the REQUESTER that
+-- they were accepted, instead of telling the accepter "X followed you".
+-- (accept_follow_request / handle_privacy_change insert the follow while
+-- the request row still exists, then delete it.)
 create or replace function public.notify_on_follow()
 returns trigger language plpgsql security definer set search_path = public
 as $$
 begin
-  if new.follower_id <> new.following_id then
+  if new.follower_id = new.following_id then
+    return new;
+  end if;
+  if exists (
+    select 1 from public.follow_requests
+    where requester_id = new.follower_id and target_id = new.following_id
+  ) then
+    insert into public.notifications (user_id, actor_id, type)
+    values (new.follower_id, new.following_id, 'follow_accepted');
+  else
     insert into public.notifications (user_id, actor_id, type)
     values (new.following_id, new.follower_id, 'follow');
   end if;
   return new;
 end;
 $$;
+
+create or replace function public.notify_on_follow_request()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.notifications (user_id, actor_id, type)
+  values (new.target_id, new.requester_id, 'follow_request');
+  return new;
+end;
+$$;
+drop trigger if exists notify_on_follow_request on public.follow_requests;
+create trigger notify_on_follow_request after insert on public.follow_requests
+  for each row execute procedure public.notify_on_follow_request();
+
+-- once a request is accepted, declined or cancelled, its notification goes too
+create or replace function public.clear_follow_request_notification()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  delete from public.notifications
+  where type = 'follow_request' and user_id = old.target_id and actor_id = old.requester_id;
+  return old;
+end;
+$$;
+drop trigger if exists clear_follow_request_notification on public.follow_requests;
+create trigger clear_follow_request_notification after delete on public.follow_requests
+  for each row execute procedure public.clear_follow_request_notification();
 drop trigger if exists notify_on_follow on public.follows;
 create trigger notify_on_follow after insert on public.follows
   for each row execute procedure public.notify_on_follow();
@@ -612,7 +792,7 @@ drop policy if exists "users can view their own templates" on public.workout_tem
 create policy "users can view their own templates"
   on public.workout_templates for select
   to authenticated
-  using (user_id = auth.uid() or is_public);
+  using (user_id = auth.uid() or (is_public and public.can_see_profile_details(user_id)));
 
 drop policy if exists "users can insert their own templates" on public.workout_templates;
 create policy "users can insert their own templates"
@@ -650,7 +830,8 @@ create policy "template_exercises follow parent template visibility"
   using (
     exists (
       select 1 from public.workout_templates t
-      where t.id = template_id and (t.user_id = auth.uid() or t.is_public)
+      where t.id = template_id
+        and (t.user_id = auth.uid() or (t.is_public and public.can_see_profile_details(t.user_id)))
     )
   );
 
@@ -1189,6 +1370,9 @@ begin
   delete from public.follows
   where (follower_id = new.blocker_id and following_id = new.blocked_id)
      or (follower_id = new.blocked_id and following_id = new.blocker_id);
+  delete from public.follow_requests
+  where (requester_id = new.blocker_id and target_id = new.blocked_id)
+     or (requester_id = new.blocked_id and target_id = new.blocker_id);
   return new;
 end;
 $$;

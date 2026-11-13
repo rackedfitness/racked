@@ -38,7 +38,14 @@ export async function follow(followingId: string) {
     throw new Error("Can't follow this user.");
   }
 
-  await supabase.from("follows").insert({ follower_id: user.id, following_id: followingId });
+  // Private accounts get a request instead; the database rejects a direct
+  // follow of a private account either way.
+  const { data: target } = await supabase.from("profiles").select("is_private").eq("id", followingId).maybeSingle();
+  if (target?.is_private) {
+    await supabase.from("follow_requests").insert({ requester_id: user.id, target_id: followingId });
+  } else {
+    await supabase.from("follows").insert({ follower_id: user.id, following_id: followingId });
+  }
 
   revalidatePath("/people");
   revalidatePath("/profile");
@@ -52,14 +59,42 @@ export async function unfollow(followingId: string) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  await supabase
-    .from("follows")
-    .delete()
-    .eq("follower_id", user.id)
-    .eq("following_id", followingId);
+  assertUuid(followingId, "user");
+
+  // Also cancels a pending request, so one button covers Following and Requested.
+  await Promise.all([
+    supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", followingId),
+    supabase.from("follow_requests").delete().eq("requester_id", user.id).eq("target_id", followingId),
+  ]);
   revalidatePath("/people");
   revalidatePath("/profile");
   revalidatePath("/");
+}
+
+export async function acceptFollowRequest(requesterId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  assertUuid(requesterId, "user");
+
+  const { error } = await supabase.rpc("accept_follow_request", { p_requester_id: requesterId });
+  if (error) throw new Error(error.message);
+  revalidatePath("/notifications");
+  revalidatePath("/profile");
+}
+
+export async function declineFollowRequest(requesterId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  assertUuid(requesterId, "user");
+
+  await supabase.from("follow_requests").delete().eq("requester_id", requesterId).eq("target_id", user.id);
+  revalidatePath("/notifications");
 }
 
 export async function toggleLike(workoutId: string) {

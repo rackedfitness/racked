@@ -77,6 +77,10 @@ export default function PrivacyPage() {
             <li>Clear your workout history while keeping your account, or permanently delete your account entirely (which also cancels any active subscription) — both from Settings</li>
             <li>Block or report other users</li>
             <li>Choose whether each workout is public or private</li>
+            <li>
+              Make your account private (new accounts start private), so people must request to follow you and only
+              approved followers see your workouts, plans and connections
+            </li>
           </ul>
         </section>
 

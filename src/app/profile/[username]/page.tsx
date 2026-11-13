@@ -26,7 +26,7 @@ export default async function ProfilePage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url")
+    .select("id, username, display_name, avatar_url, is_private")
     .eq("username", username)
     .single();
 
@@ -39,11 +39,11 @@ export default async function ProfilePage({
   // nearly every avatar/name link in the app, so it's worth keeping fast.
   const [
     { data: existingFollow },
+    { data: pendingRequest },
     { data: rawWorkouts },
     { data: latestMeasurement },
     { data: exercises },
-    { count: followerCount },
-    { count: followingCount },
+    { data: followCounts },
     subscription,
     cookieStore,
     { data: publicPlans },
@@ -58,6 +58,14 @@ export default async function ProfilePage({
           .select("follower_id")
           .eq("follower_id", user?.id ?? "")
           .eq("following_id", profile.id)
+          .maybeSingle(),
+    isSelf || !profile.is_private
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("follow_requests")
+          .select("target_id")
+          .eq("requester_id", user?.id ?? "")
+          .eq("target_id", profile.id)
           .maybeSingle(),
     supabase
       .from("workouts")
@@ -77,8 +85,8 @@ export default async function ProfilePage({
       .limit(1)
       .maybeSingle(),
     supabase.from("exercises").select("id, name"),
-    supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
-    supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
+    // counts stay visible on private profiles even though the lists don't
+    supabase.rpc("follow_counts", { p_user_id: profile.id }).maybeSingle(),
     isSelf ? getSubscription(profile.id) : Promise.resolve(null),
     isSelf ? cookies() : Promise.resolve(null),
     supabase
@@ -102,6 +110,13 @@ export default async function ProfilePage({
   ]);
 
   const isFollowing = Boolean(existingFollow);
+  const isRequested = Boolean(pendingRequest);
+  // Workouts are hidden by the database regardless; this swaps the empty
+  // profile for an explanation and hides the stats/plans sections.
+  const isLocked = !isSelf && Boolean(profile.is_private) && !isFollowing;
+  const counts = followCounts as { followers: number; following: number } | null;
+  const followerCount = Number(counts?.followers ?? 0);
+  const followingCount = Number(counts?.following ?? 0);
   const isBlockedEitherWay = Boolean(blockRow);
   const viewerBlockedThem = blockRow?.blocker_id === user?.id;
 
@@ -125,7 +140,8 @@ export default async function ProfilePage({
     : [];
   const topRank = bestOverallRank(liftRanks);
 
-  const action = isFollowing ? unfollow.bind(null, profile.id) : follow.bind(null, profile.id);
+  // unfollow also cancels a pending request
+  const action = isFollowing || isRequested ? unfollow.bind(null, profile.id) : follow.bind(null, profile.id);
 
   const showPremiumPromo = isSelf && !isPremiumStatus(subscription?.status);
   const promoDismissed = cookieStore?.get("racked_premium_promo_dismissed")?.value === "1";
@@ -138,7 +154,14 @@ export default async function ProfilePage({
           {!isSelf && <BackButton />}
           <Avatar url={profile.avatar_url} name={profile.display_name ?? profile.username} size="lg" />
           <div>
-            <h1 className="text-xl font-bold">{profile.display_name ?? profile.username}</h1>
+            <h1 className="text-xl font-bold">
+              {profile.display_name ?? profile.username}
+              {profile.is_private && (
+                <span className="ml-1.5 text-base" role="img" aria-label="Private account" title="Private account">
+                  🔒
+                </span>
+              )}
+            </h1>
             <p className="text-sm text-muted">@{profile.username}</p>
           </div>
         </div>
@@ -156,12 +179,12 @@ export default async function ProfilePage({
               <form action={action}>
                 <SubmitButton
                   className={
-                    isFollowing
+                    isFollowing || isRequested
                       ? "rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted"
                       : "glow-accent-sm rounded-full bg-accent px-3 py-1.5 text-sm font-bold text-accent-ink"
                   }
                 >
-                  {isFollowing ? "Following" : "Follow"}
+                  {isFollowing ? "Following" : isRequested ? "Requested" : "Follow"}
                 </SubmitButton>
               </form>
             )}
@@ -184,12 +207,27 @@ export default async function ProfilePage({
       <>
       <div className="tnum flex gap-6 text-sm">
         <Link href={`/profile/${profile.username}/followers`}>
-          {followerCount ?? 0} <span className="font-sans font-normal text-muted">followers</span>
+          {followerCount} <span className="font-sans font-normal text-muted">followers</span>
         </Link>
         <Link href={`/profile/${profile.username}/following`}>
-          {followingCount ?? 0} <span className="font-sans font-normal text-muted">following</span>
+          {followingCount} <span className="font-sans font-normal text-muted">following</span>
         </Link>
       </div>
+
+      {isLocked ? (
+        <div className="rounded-lg border border-dashed border-card-border p-6 text-center text-sm text-muted">
+          <p className="mb-1 text-2xl" aria-hidden>
+            🔒
+          </p>
+          <p className="font-medium text-foreground">This account is private</p>
+          <p>
+            {isRequested
+              ? "Your follow request is pending."
+              : "Follow this account to see their workouts and plans."}
+          </p>
+        </div>
+      ) : (
+      <>
 
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-lg border border-card-border bg-card p-3">
@@ -274,6 +312,8 @@ export default async function ProfilePage({
           </p>
         )}
       </div>
+      </>
+      )}
       </>
       )}
     </div>

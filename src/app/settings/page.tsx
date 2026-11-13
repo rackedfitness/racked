@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
 
   const [{ data: profile }, privateProfile] = await Promise.all([
-    supabase.from("profiles").select("display_name, username, avatar_url, weight_unit").eq("id", user!.id).single(),
+    supabase.from("profiles").select("display_name, username, avatar_url, weight_unit, is_private").eq("id", user!.id).single(),
     getMyPrivateProfile(),
   ]);
 
@@ -111,6 +111,21 @@ export default async function SettingsPage() {
             <option value="kg">Kilograms (kg)</option>
             <option value="lbs">Pounds (lbs)</option>
           </select>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="isPrivate"
+            defaultChecked={profile?.is_private ?? false}
+            className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+          />
+          <span>
+            <span className="block font-medium">Private account</span>
+            <span className="block text-xs text-muted">
+              People have to request to follow you, and only approved followers see your workouts, plans, and
+              who you follow. Switching back to public approves any pending requests.
+            </span>
+          </span>
         </label>
         <button
           type="submit"

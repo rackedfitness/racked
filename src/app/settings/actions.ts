@@ -32,15 +32,21 @@ export async function updateProfile(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  await supabase
+  const fields = {
+    display_name: displayName,
+    sex: sex === "male" || sex === "female" ? sex : null,
+    age: ageRaw ? Number(ageRaw) : null,
+    weight_unit: weightUnit === "lbs" ? "lbs" : "kg",
+  };
+  const { error } = await supabase
     .from("profiles")
-    .update({
-      display_name: displayName,
-      sex: sex === "male" || sex === "female" ? sex : null,
-      age: ageRaw ? Number(ageRaw) : null,
-      weight_unit: weightUnit === "lbs" ? "lbs" : "kg",
-    })
+    .update({ ...fields, is_private: formData.get("isPrivate") === "on" })
     .eq("id", user.id);
+  // is_private needs migration 5 — don't let the rest of the profile fail to
+  // save if it hasn't been run yet
+  if (error && /is_private/.test(error.message)) {
+    await supabase.from("profiles").update(fields).eq("id", user.id);
+  }
 
   if (email && email !== user.email) {
     await supabase.auth.updateUser({ email });

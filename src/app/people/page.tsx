@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PersonRow from "@/components/PersonRow";
+import { getMyFollowStatusLookup } from "@/lib/followState";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { ArrowLeftIcon } from "@/components/UIIcons";
 
@@ -27,14 +28,7 @@ export default async function PeoplePage({
     profilesQuery = profilesQuery.ilike("username", `%${q}%`);
   }
 
-  const { data: profiles } = await profilesQuery;
-
-  const { data: following } = await supabase
-    .from("follows")
-    .select("following_id")
-    .eq("follower_id", user?.id ?? "");
-
-  const followingIds = new Set((following ?? []).map((f) => f.following_id));
+  const [{ data: profiles }, statusOf] = await Promise.all([profilesQuery, getMyFollowStatusLookup(user!.id)]);
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-6">
@@ -49,7 +43,7 @@ export default async function PeoplePage({
 
       <div className="flex flex-col divide-y divide-card-border">
         {(profiles ?? []).map((p) => (
-          <PersonRow key={p.id} profile={p} isFollowing={followingIds.has(p.id)} isSelf={false} />
+          <PersonRow key={p.id} profile={p} status={statusOf(p.id)} isSelf={false} />
         ))}
 
         {profiles && profiles.length === 0 && (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient, getUser } from "@/lib/supabase/server";
 import Avatar from "@/components/Avatar";
 import PersonRow from "@/components/PersonRow";
+import { getMyFollowStatusLookup } from "@/lib/followState";
 import SubmitButton from "@/components/SubmitButton";
 import UsernameSearchInput from "@/components/UsernameSearchInput";
 import { toggleLike } from "@/app/social/actions";
@@ -18,7 +19,7 @@ export default async function FeedPage({
   const supabase = await createClient();
   const user = await getUser();
 
-  const [{ data: rawWorkouts, error: workoutsError }, searchResult, followingResult, { count: unreadCount }, blockedIds] =
+  const [{ data: rawWorkouts, error: workoutsError }, searchResult, statusOf, { count: unreadCount }, blockedIds] =
     await Promise.all([
     q
       ? Promise.resolve({ data: [], error: null })
@@ -39,9 +40,7 @@ export default async function FeedPage({
           .order("username")
           .limit(30)
       : Promise.resolve({ data: null }),
-    q
-      ? supabase.from("follows").select("following_id").eq("follower_id", user!.id)
-      : Promise.resolve({ data: null }),
+    q ? getMyFollowStatusLookup(user!.id) : Promise.resolve(() => "none" as const),
     supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
@@ -58,7 +57,6 @@ export default async function FeedPage({
   const workouts = (rawWorkouts ?? []).filter((w) => !blockedSet.has(w.user_id));
 
   const searchMatches = (searchResult.data ?? []).filter((p) => p.id !== user!.id);
-  const followingIds = new Set((followingResult.data ?? []).map((f) => f.following_id));
 
   const workoutIds = (workouts ?? []).map((w) => w.id);
 
@@ -130,7 +128,7 @@ export default async function FeedPage({
           </Link>
           <div className="flex flex-col divide-y divide-card-border">
             {searchMatches.map((p) => (
-              <PersonRow key={p.id} profile={p} isFollowing={followingIds.has(p.id)} isSelf={false} />
+              <PersonRow key={p.id} profile={p} status={statusOf(p.id)} isSelf={false} />
             ))}
             {searchMatches.length === 0 && (
               <p className="py-6 text-center text-sm text-muted">No users found.</p>
