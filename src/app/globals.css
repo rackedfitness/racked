@@ -287,18 +287,27 @@ h3 {
   animation: pin-shake 0.35s ease-in-out;
 }
 
-/* rank-up celebration: the badge bounces in with a bit of overshoot */
+/* rank-up celebration: the badge slams in from "camera distance" and lands
+   with an overshoot. The landing beat is ~40% through (0.28s) — that's when
+   RankUpOverlay fires the screen shake, flash, shockwaves and confetti. */
 @keyframes rank-up-pop {
   0% {
-    transform: scale(0.4) rotate(-8deg);
+    transform: scale(3.2) rotate(-14deg);
     opacity: 0;
+    filter: blur(6px);
   }
-  55% {
-    transform: scale(1.15) rotate(3deg);
+  22% {
     opacity: 1;
   }
-  75% {
-    transform: scale(0.95) rotate(-1deg);
+  40% {
+    transform: scale(0.86) rotate(4deg);
+    filter: blur(0);
+  }
+  58% {
+    transform: scale(1.1) rotate(-2deg);
+  }
+  78% {
+    transform: scale(0.97) rotate(1deg);
   }
   100% {
     transform: scale(1) rotate(0deg);
@@ -306,20 +315,234 @@ h3 {
 }
 
 .animate-rank-up-pop {
-  animation: rank-up-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: rank-up-pop 0.7s cubic-bezier(0.25, 0.8, 0.35, 1) both;
 }
 
 @keyframes rank-up-text-in {
   0% {
     opacity: 0;
-    transform: translateY(8px);
+    transform: scale(1.5) translateY(10px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 
 .animate-rank-up-text {
-  animation: rank-up-text-in 0.4s ease-out 0.3s both;
+  animation: rank-up-text-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) 0.3s both;
+}
+
+/* the overlay's own contents shaking, starting on the landing beat */
+@keyframes rank-up-shake {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  8% {
+    transform: translate(-14px, 8px) rotate(-1.2deg);
+  }
+  16% {
+    transform: translate(13px, -9px) rotate(1deg);
+  }
+  24% {
+    transform: translate(-11px, -6px) rotate(-0.8deg);
+  }
+  32% {
+    transform: translate(10px, 7px) rotate(0.7deg);
+  }
+  42% {
+    transform: translate(-7px, 4px) rotate(-0.5deg);
+  }
+  54% {
+    transform: translate(5px, -4px) rotate(0.3deg);
+  }
+  68% {
+    transform: translate(-3px, 2px) rotate(0deg);
+  }
+  82% {
+    transform: translate(2px, -1px) rotate(0deg);
+  }
+}
+
+.animate-rank-up-shake {
+  animation: rank-up-shake 0.9s linear 0.28s both;
+}
+
+/* Whole-screen shake for PR / rank-up moments (triggered by shakeScreen in
+   lib/celebrate.ts, which adds .screen-shaking to <body> and sets --shake-amp
+   and --shake-dur). <main> moves via relative top/left offsets, NOT transform:
+   a transformed ancestor becomes the containing block for every fixed modal
+   inside it and would knock them out of place mid-shake. The fixed bottom nav
+   is its own element, so it can safely use transform. */
+@keyframes screen-shake-offset {
+  0%,
+  100% {
+    left: 0;
+    top: 0;
+  }
+  7% {
+    left: calc(var(--shake-amp, 8px) * -1);
+    top: calc(var(--shake-amp, 8px) * 0.55);
+  }
+  15% {
+    left: calc(var(--shake-amp, 8px) * 0.92);
+    top: calc(var(--shake-amp, 8px) * -0.7);
+  }
+  24% {
+    left: calc(var(--shake-amp, 8px) * -0.8);
+    top: calc(var(--shake-amp, 8px) * -0.4);
+  }
+  33% {
+    left: calc(var(--shake-amp, 8px) * 0.66);
+    top: calc(var(--shake-amp, 8px) * 0.5);
+  }
+  44% {
+    left: calc(var(--shake-amp, 8px) * -0.5);
+    top: calc(var(--shake-amp, 8px) * 0.3);
+  }
+  56% {
+    left: calc(var(--shake-amp, 8px) * 0.36);
+    top: calc(var(--shake-amp, 8px) * -0.28);
+  }
+  70% {
+    left: calc(var(--shake-amp, 8px) * -0.22);
+    top: calc(var(--shake-amp, 8px) * 0.16);
+  }
+  85% {
+    left: calc(var(--shake-amp, 8px) * 0.1);
+    top: calc(var(--shake-amp, 8px) * -0.08);
+  }
+}
+
+@keyframes screen-shake-transform {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  7% {
+    transform: translate(calc(var(--shake-amp, 8px) * -1), calc(var(--shake-amp, 8px) * 0.55));
+  }
+  15% {
+    transform: translate(calc(var(--shake-amp, 8px) * 0.92), calc(var(--shake-amp, 8px) * -0.7));
+  }
+  24% {
+    transform: translate(calc(var(--shake-amp, 8px) * -0.8), calc(var(--shake-amp, 8px) * -0.4));
+  }
+  33% {
+    transform: translate(calc(var(--shake-amp, 8px) * 0.66), calc(var(--shake-amp, 8px) * 0.5));
+  }
+  44% {
+    transform: translate(calc(var(--shake-amp, 8px) * -0.5), calc(var(--shake-amp, 8px) * 0.3));
+  }
+  56% {
+    transform: translate(calc(var(--shake-amp, 8px) * 0.36), calc(var(--shake-amp, 8px) * -0.28));
+  }
+  70% {
+    transform: translate(calc(var(--shake-amp, 8px) * -0.22), calc(var(--shake-amp, 8px) * 0.16));
+  }
+  85% {
+    transform: translate(calc(var(--shake-amp, 8px) * 0.1), calc(var(--shake-amp, 8px) * -0.08));
+  }
+}
+
+body.screen-shaking {
+  overflow-x: clip;
+}
+
+body.screen-shaking main {
+  position: relative;
+  animation: screen-shake-offset var(--shake-dur, 500ms) linear both;
+}
+
+body.screen-shaking nav.fixed,
+body.screen-shaking .shake-fixed {
+  animation: screen-shake-transform var(--shake-dur, 500ms) linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.screen-shaking main,
+  body.screen-shaking nav.fixed,
+  body.screen-shaking .shake-fixed {
+    animation: none;
+  }
+}
+
+/* PR impact: the set row slams outward with a big glow, then settles. Separate
+   from .animate-pr-pop on purpose — the Champion rank badge reuses that one. */
+@keyframes pr-impact-pop {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 85%, transparent);
+  }
+  22% {
+    transform: scale(1.1);
+    box-shadow: 0 0 50px 12px color-mix(in srgb, var(--accent) 80%, transparent);
+  }
+  42% {
+    transform: scale(0.97);
+  }
+  62% {
+    transform: scale(1.035);
+    box-shadow: 0 0 28px 4px color-mix(in srgb, var(--accent) 65%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 14px -2px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
+.animate-pr-impact {
+  animation: pr-impact-pop 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pr-badge-pop {
+  0% {
+    transform: scale(0) rotate(-20deg);
+  }
+  45% {
+    transform: scale(1.9) rotate(6deg);
+  }
+  70% {
+    transform: scale(0.88) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-pr-badge-pop {
+  animation: pr-badge-pop 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+/* big "NEW PR!" text that slams onto the screen, holds, then lifts away */
+@keyframes pr-slam {
+  0% {
+    transform: scale(3.4) rotate(-6deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  28% {
+    transform: scale(0.9) rotate(1.5deg);
+  }
+  40% {
+    transform: scale(1.07) rotate(-1deg);
+  }
+  52% {
+    transform: scale(1) rotate(0deg);
+  }
+  78% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.12) translateY(-24px);
+    opacity: 0;
+  }
+}
+
+.animate-pr-slam {
+  animation: pr-slam 1.15s ease-out both;
 }

@@ -8,7 +8,7 @@ import { estimateOneRepMax, formatDuration } from "@/lib/stats";
 import { playTapSound, playPRSound, playRestCompleteSound } from "@/lib/sound";
 import { createClient } from "@/lib/supabase/client";
 import { prepareImageForUpload } from "@/lib/imageResize";
-import confetti from "canvas-confetti";
+import { celebratePR } from "@/lib/celebrate";
 import ExercisePicker from "@/components/ExercisePicker";
 import ExerciseIcon, { equipmentLabel } from "@/components/ExerciseIcon";
 import ExerciseDetailModal from "@/components/ExerciseDetailModal";
@@ -69,33 +69,6 @@ function loadDraft(userId: string | undefined): WorkoutDraft | null {
   } catch {
     return null;
   }
-}
-
-// A simple medal glyph (ribbon flags + disc) for PR-celebration confetti.
-// canvas-confetti's shapeFromPath needs a browser Path2D, so it's built lazily
-// on first use (never at module scope, which would also run during SSR) and
-// cached since computing the transform matrix is relatively expensive.
-const MEDAL_PATH =
-  "M14,2 L20,2 L20,14 Z M26,2 L20,2 L20,14 Z M11,24 A9,9 0 1,0 29,24 A9,9 0 1,0 11,24 Z";
-let medalShapeCache: ReturnType<typeof confetti.shapeFromPath> | null = null;
-function getMedalShape() {
-  if (!medalShapeCache) {
-    medalShapeCache = confetti.shapeFromPath({ path: MEDAL_PATH });
-  }
-  return medalShapeCache;
-}
-
-function fireConfetti() {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ccff00";
-  confetti({
-    particleCount: 90,
-    spread: 75,
-    startVelocity: 45,
-    origin: { y: 0.6 },
-    colors: [accent, "#ffffff"],
-    ticks: 160,
-    shapes: [getMedalShape()],
-  });
 }
 
 function suggestedWeightFor(
@@ -232,6 +205,9 @@ export default function WorkoutBuilder({
   const [finishChoiceOpen, setFinishChoiceOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [rankUpQueue, setRankUpQueue] = useState<RankUpToast[]>([]);
+  // Bumped on every new PR; the key remounts the "NEW PR!" banner so its slam
+  // animation replays, and it resets to 0 when that animation ends.
+  const [prBannerKey, setPrBannerKey] = useState(0);
   const [rankThemeByExercise, setRankThemeByExercise] = useState<Record<string, RankTier>>({});
   const canRank = Boolean(bodyweightKg && age && sex);
 
@@ -607,7 +583,8 @@ export default function WorkoutBuilder({
 
     if (willComplete && bestIndex === idx) {
       playPRSound();
-      fireConfetti();
+      celebratePR(document.querySelector(`[data-set-row="${exerciseId}:${idx}"]`));
+      setPrBannerKey((k) => k + 1);
 
       // A rank tier only ever moves on the same event as a PR (it's a
       // function of the best e1RM), so this is the only place it can happen.
@@ -868,6 +845,18 @@ export default function WorkoutBuilder({
 
       <RankUpOverlay event={rankUpQueue[0] ?? null} onDone={() => setRankUpQueue((q) => q.slice(1))} />
 
+      {prBannerKey > 0 && (
+        <div key={prBannerKey} className="pointer-events-none fixed inset-x-0 top-[28%] z-[45] flex justify-center">
+          <span
+            className="animate-pr-slam select-none font-display text-7xl font-black uppercase tracking-wide text-accent"
+            style={{ textShadow: "0 0 36px color-mix(in srgb, var(--accent) 75%, transparent)" }}
+            onAnimationEnd={() => setPrBannerKey(0)}
+          >
+            New PR!
+          </span>
+        </div>
+      )}
+
       {restPickerForExerciseId &&
         (() => {
           const restEx = selected.find((e) => e.exerciseId === restPickerForExerciseId);
@@ -1069,16 +1058,16 @@ export default function WorkoutBuilder({
               {ex.sets.map((set, idx) => {
                 const suggested = suggestedWeightFor(ex.sets, idx, lastKnownWeight[ex.exerciseId]);
                 return (
-                <div key={idx} className="relative">
+                <div key={idx} data-set-row={`${ex.exerciseId}:${idx}`} className="relative">
                   {set.isPR && (
-                    <span className="tnum absolute -top-2 right-8 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
+                    <span className="tnum animate-pr-badge-pop absolute -top-2 right-8 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
                       PR
                     </span>
                   )}
                   <div
                     className={`grid grid-cols-[1.25rem_1fr_1fr_2.5rem_2.25rem] items-center gap-2 rounded-md border p-1 transition-colors duration-300 ${
                       set.isPR
-                        ? "animate-pr-pop border-accent bg-accent/20"
+                        ? "animate-pr-impact border-accent bg-accent/20"
                         : set.completed
                           ? "animate-set-complete border-accent bg-accent/15"
                           : "border-transparent"
