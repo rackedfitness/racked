@@ -55,6 +55,19 @@ export function shakeScreen({
   shakeTimer = setTimeout(() => body.classList.remove("screen-shaking"), durationMs + 50);
 }
 
+/**
+ * Starts a continuous side-to-side shake of the whole screen (page content +
+ * bottom nav) and returns a function that stops it. Unlike shakeScreen this
+ * doesn't decay or time out — the caller owns when it ends.
+ */
+export function startShakeLoop(amplitude: number): () => void {
+  if (typeof document === "undefined") return () => {};
+  const body = document.body;
+  body.style.setProperty("--shake-loop-amp", `${amplitude}px`);
+  body.classList.add("screen-shaking-loop");
+  return () => body.classList.remove("screen-shaking-loop");
+}
+
 /** A full-screen color flash that fades out — the "camera flash" on impact. */
 export function flashScreen(color: string, peakOpacity: number, durationMs = 380) {
   if (typeof document === "undefined" || prefersReducedMotion()) return;
